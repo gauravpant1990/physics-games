@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projectile Motion — Bottle Shoot</title>
+<style>
+  :root {
+    --bg:        #ffffff;
+    --bg2:       #f5f5f3;
+    --bg3:       #ebebeb;
+    --text:      #1a1a18;
+    --text2:     #5f5e5a;
+    --text3:     #888780;
+    --border:    rgba(0,0,0,0.13);
+    --border2:   rgba(0,0,0,0.25);
+    --success-bg:#e1f5ee;
+    --success-tx:#085041;
+    --hint-bg:   #f5f5f3;
+    --hint-tx:   #5f5e5a;
+    --radius:    8px;
+    --radius-lg: 12px;
+    --mono:      'Courier New', monospace;
+    --sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #1a1a1a;
+      --bg2:       #252525;
+      --bg3:       #303030;
+      --text:      #f0f0ee;
+      --text2:     #a0a09a;
+      --text3:     #666660;
+      --border:    rgba(255,255,255,0.13);
+      --border2:   rgba(255,255,255,0.25);
+      --success-bg:#0a3828;
+      --success-tx:#9fe1cb;
+      --hint-bg:   #252525;
+      --hint-tx:   #a0a09a;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px 12px 40px;
+  }
+  .wrap { width: 100%; max-width: 480px; }
+  .problem {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: var(--bg2);
+    border-radius: var(--radius);
+  }
+  .problem strong { color: var(--text); }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+  }
+  .controls { margin-top: 12px; display: grid; gap: 10px; }
+  .ctrl-row { display: flex; align-items: center; gap: 12px; }
+  .ctrl-row label { font-size: 12px; color: var(--text2); width: 64px; flex-shrink: 0; }
+  .val { font-size: 15px; font-weight: 500; color: var(--text); width: 64px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
+  .angle-btns { display: flex; gap: 5px; flex: 1; }
+  .abtn {
+    flex: 1; padding: 7px 2px; font-size: 12px; font-weight: 500;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text2);
+    cursor: pointer; text-align: center;
+    transition: background .12s, color .12s;
+    font-family: var(--sans);
+  }
+  .abtn:hover { background: var(--bg2); }
+  .abtn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  input[type=range] {
+    flex: 1; accent-color: var(--text);
+    cursor: pointer;
+  }
+  .fire-row { display: flex; gap: 8px; margin-top: 2px; }
+  .fire-btn {
+    flex: 1; padding: 10px; font-size: 14px; font-weight: 500;
+    background: var(--text); color: var(--bg);
+    border: none; border-radius: var(--radius); cursor: pointer;
+    font-family: var(--sans);
+    transition: opacity .15s;
+  }
+  .fire-btn:hover { opacity: 0.85; }
+  .fire-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .reset-btn {
+    padding: 10px 16px; font-size: 13px; font-weight: 500;
+    background: var(--bg2); color: var(--text);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius); cursor: pointer;
+    font-family: var(--sans);
+  }
+  .dots-row { display: flex; align-items: center; gap: 6px; }
+  .dots-row span { font-size: 12px; color: var(--text2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); }
+  .dot.used { background: #E24B4A; }
+  .dot.cur  { background: #BA7517; }
+  .result-msg {
+    font-size: 13px; font-weight: 500;
+    padding: 9px 12px; border-radius: var(--radius);
+    margin-top: 8px; line-height: 1.5; display: none;
+  }
+  .result-msg.win  { background: var(--success-bg); color: var(--success-tx); }
+  .result-msg.hint { background: var(--hint-bg);    color: var(--hint-tx); }
+  .score-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px; margin-top: 8px; display: none;
+  }
+  .sc { background: var(--bg2); border-radius: var(--radius); padding: 8px 10px; text-align: center; }
+  .sc .sl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+  .sc .sv { font-size: 16px; font-weight: 500; color: var(--text); font-family: var(--mono); }
+  .explainer {
+    margin-top: 10px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden; display: none;
+  }
+  .ex-head {
+    padding: 10px 14px; background: var(--bg2); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 500; color: var(--text);
+    user-select: none;
+  }
+  .ex-body { padding: 12px 14px; display: none; }
+  .ex-body.open { display: block; }
+  .info-box {
+    padding: 8px 10px; background: var(--bg2);
+    border-radius: var(--radius);
+    font-size: 12px; color: var(--text2);
+    line-height: 1.75; margin-bottom: 6px;
+  }
+  .info-box strong { color: var(--text); }
+  .ex-line {
+    padding: 4px 0; border-bottom: 0.5px solid var(--border);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px;
+  }
+  .ex-line:last-child { border-bottom: none; }
+  .ek { color: var(--text2); }
+  .ev { font-family: var(--mono); font-size: 11px; color: var(--text); font-weight: 500; }
+  .answer-box {
+    margin-top: 8px; padding: 8px 10px;
+    background: var(--bg2); border-left: 3px solid #1D9E75;
+    border-radius: var(--radius);
+    font-size: 12px; color: var(--text2); line-height: 1.75;
+  }
+  .answer-box strong { color: var(--text); }
+  footer {
+    margin-top: 32px; padding-top: 14px;
+    border-top: 0.5px solid var(--border);
+    font-size: 11px; color: var(--text3); text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="problem">
+    Wall at <strong>20 m</strong>, height <strong>10 m</strong>. Bottle A sits on top of the wall. Bottle B sits on the ground at <strong>40 m</strong>. Hit both with a single shot. (g = 10 m/s²)
+  </div>
+
+  <canvas id="cv" height="220" role="img" aria-label="Cannon game: fire the cannon to hit both bottles"></canvas>
+
+  <div class="controls">
+    <div class="ctrl-row">
+      <label>Angle</label>
+      <div class="angle-btns" id="angle-btns">
+        <button class="abtn" data-a="0">0°</button>
+        <button class="abtn" data-a="30">30°</button>
+        <button class="abtn active" data-a="45">45°</button>
+        <button class="abtn" data-a="60">60°</button>
+        <button class="abtn" data-a="90">90°</button>
+      </div>
+      <div class="val" id="a-val">45°</div>
+    </div>
+    <div class="ctrl-row">
+      <label>Velocity</label>
+      <input type="range" id="v-sl" min="10" max="50" value="20" step="5">
+      <div class="val" id="v-val">20 m/s</div>
+    </div>
+
+    <div class="fire-row">
+      <button class="fire-btn" id="fire-btn">Fire</button>
+      <button class="reset-btn" id="reset-btn" style="display:none">Reset</button>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="dots-row" id="dots-row">
+        <span>Lives:</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2)">Score: <strong id="score-live" style="color:var(--text)">100</strong></div>
+    </div>
+  </div>
+
+  <div class="result-msg" id="result-msg"></div>
+
+  <div class="score-row" id="score-row">
+    <div class="sc"><div class="sl">marks</div><div class="sv" id="om">—</div></div>
+    <div class="sc"><div class="sl">attempts</div><div class="sv" id="oa">—</div></div>
+    <div class="sc"><div class="sl">time</div><div class="sv" id="ot">—</div></div>
+  </div>
+
+  <div class="explainer" id="explainer">
+    <div class="ex-head" id="ex-head">Solution walkthrough <span id="ex-arr">▼</span></div>
+    <div class="ex-body" id="ex-body"></div>
+  </div>
+
+  <footer>Projectile Motion · Mechanics · Physics Game</footer>
+</div>
+
+<script>
+const G=10, WALL_X=20, WALL_H=10, BOT_X=40;
+const MAX_TRIES=4, MARKS=[100,70,40,10], HIT_R=1.2;
+const W=480, H=220, PL=36, PR=14, PB=28, PT=14;
+const WW=55, WH=28;
+
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+cv.width=W; cv.height=H;
+
+let angle=45, vel=20, attempt=1, gameOver=false, animating=false;
+let startTime=Date.now();
+
+function sinD(d){return({0:0,30:0.5,45:Math.SQRT2/2,60:Math.sqrt(3)/2,90:1})[d]??Math.sin(d*Math.PI/180);}
+function cosD(d){return({0:1,30:Math.sqrt(3)/2,45:Math.SQRT2/2,60:0.5,90:0})[d]??Math.cos(d*Math.PI/180);}
+function cxf(x){return PL+(x/WW)*(W-PL-PR);}
+function cyf(y){return H-PB-(y/WH)*(H-PT-PB);}
+
+function getTraj(v,a){
+  let pts=[],t=0,dt=0.04;
+  let vx=v*cosD(a), vy=v*sinD(a);
+  while(t<30){
+    let x=vx*t, y=vy*t-0.5*G*t*t;
+    if(y<-0.5&&t>0.1)break;
+    pts.push([x,y]); t+=dt;
+  }
+  return pts;
+}
+
+function checkHit(v,a){
+  let vx=v*cosD(a), vy=v*sinD(a);
+  if(vx<0.001)return{hitA:false,hitB:false,yA:-999,yB:-999,tA:0,tB:0};
+  let tA=WALL_X/vx, yA=vy*tA-0.5*G*tA*tA;
+  let tB=BOT_X/vx,  yB=vy*tB-0.5*G*tB*tB;
+  return{hitA:Math.abs(yA-WALL_H)<HIT_R, hitB:Math.abs(yB)<HIT_R&&yB>-0.5,
+    yA:+yA.toFixed(2), yB:+yB.toFixed(2), tA:+tA.toFixed(3), tB:+tB.toFixed(3)};
+}
+
+function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+
+function drawScene(trail,bx,by,state,res){
+  const dark=isDark();
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=dark?'#1a1a1a':'#f5f4f0';
+  ctx.fillRect(0,0,W,H);
+
+  const gridCol=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
+  const lblCol =dark?'rgba(255,255,255,0.4)' :'rgba(0,0,0,0.4)';
+  const axCol  =dark?'rgba(255,255,255,0.45)':'rgba(0,0,0,0.5)';
+
+  ctx.strokeStyle=gridCol; ctx.lineWidth=0.5; ctx.setLineDash([2,4]);
+  [0,10,20,30,40,50].forEach(xi=>{
+    let x=cxf(xi);
+    ctx.beginPath(); ctx.moveTo(x,PT); ctx.lineTo(x,H-PB); ctx.stroke();
+    ctx.fillStyle=lblCol; ctx.font='10px monospace'; ctx.fillText(xi,x-6,H-PB+14);
+  });
+  [0,10,20].forEach(yi=>{
+    let y=cyf(yi);
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(W-PR,y); ctx.stroke();
+    if(yi>0){ctx.fillStyle=lblCol; ctx.font='10px monospace'; ctx.fillText(yi,2,y+3);}
+  });
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle=axCol; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,H-PB); ctx.lineTo(W-PR,H-PB); ctx.stroke();
+
+  const wallFill=dark?'#3d3530':'#2e2820';
+  const wallTop =dark?'#5a4e47':'#443c35';
+  ctx.fillStyle=wallFill;
+  ctx.fillRect(cxf(WALL_X)-4,cyf(WALL_H),8,cyf(0)-cyf(WALL_H));
+  ctx.fillStyle=wallTop;
+  ctx.fillRect(cxf(WALL_X)-4,cyf(WALL_H),8,3);
+
+  function drawBottle(wx,wy,hit){
+    let bx2=cxf(wx), by2=cyf(wy);
+    let col=hit===true?'#1D9E75':hit===false?'#E24B4A':'#D85A30';
+    ctx.fillStyle=col;
+    ctx.fillRect(bx2-3,by2-14,6,10);
+    ctx.fillRect(bx2-4,by2-4, 8,4);
+    ctx.fillStyle='rgba(255,255,255,0.22)';
+    ctx.fillRect(bx2-1,by2-13,1,7);
+    ctx.fillStyle=lblCol; ctx.font='bold 9px monospace';
+    ctx.fillText(wx===WALL_X?'A':'B',bx2-3,by2-17);
+  }
+
+  drawBottle(WALL_X,WALL_H,res?res.hitA:null);
+  drawBottle(BOT_X, 0,     res?res.hitB:null);
+
+  const canX=cxf(0), canY=cyf(0);
+  ctx.beginPath(); ctx.arc(canX,canY,8,0,Math.PI*2);
+  ctx.fillStyle=dark?'#444':'#2e2820'; ctx.fill();
+  ctx.beginPath(); ctx.arc(canX,canY,4,0,Math.PI*2);
+  ctx.fillStyle=dark?'#666':'#888'; ctx.fill();
+  ctx.save(); ctx.translate(canX,canY); ctx.rotate(-angle*Math.PI/180);
+  ctx.fillStyle=dark?'#555':'#3d3530'; ctx.fillRect(0,-4,20,8);
+  ctx.fillStyle=dark?'#777':'#5f5e5a'; ctx.fillRect(17,-3,6,6);
+  ctx.restore();
+
+  if(trail&&trail.length>1){
+    ctx.beginPath(); ctx.setLineDash([3,4]);
+    ctx.strokeStyle='rgba(186,117,23,0.8)'; ctx.lineWidth=1.5;
+    ctx.moveTo(cxf(trail[0][0]),cyf(trail[0][1]));
+    trail.forEach(([tx,ty])=>ctx.lineTo(cxf(tx),cyf(ty)));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  if(bx!==null){
+    let px=cxf(bx), py=cyf(by);
+    if(state==='fly'){
+      ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2);
+      ctx.fillStyle='#BA7517'; ctx.fill();
+    } else if(state==='boom'){
+      for(let i=0;i<10;i++){
+        let ea=(i/10)*Math.PI*2, er=4+Math.random()*6;
+        ctx.beginPath(); ctx.arc(px+Math.cos(ea)*er,py+Math.sin(ea)*er,2,0,Math.PI*2);
+        ctx.fillStyle=i%2?'#BA7517':'#E24B4A'; ctx.fill();
+      }
+    }
+  }
+}
+
+function buildDots(){
+  let row=document.getElementById('dots-row');
+  row.innerHTML='<span>Lives:</span>';
+  for(let i=0;i<MAX_TRIES;i++){
+    let d=document.createElement('div');
+    d.className='dot'+(i<attempt-1?' used':i===attempt-1?' cur':'');
+    row.appendChild(d);
+  }
+}
+
+function getHint(res){
+  if(res.hitA&&!res.hitB) return`Bottle A hit (y=${res.yA} m ✓). Bottle B missed — ball at y=${res.yB} m, needs 0 m. Adjust velocity.`;
+  if(!res.hitA&&res.hitB) return`Bottle B hit ✓. Bottle A missed — ball at ${res.yA} m, wall is ${WALL_H} m. Adjust angle or speed.`;
+  if(res.yA<WALL_H-HIT_R) return`Too low at wall: ${res.yA} m (need ${WALL_H} m). Try steeper angle or more speed.`;
+  if(res.yA>WALL_H+HIT_R) return`Too high at wall: ${res.yA} m (need ${WALL_H} m). Try shallower angle or less speed.`;
+  return`Wall: ${res.yA} m, x=40: ${res.yB} m. Keep adjusting.`;
+}
+
+function buildExplainer(v,a,res,success){
+  const sinStr={0:'0',30:'1/2',45:'√2/2',60:'√3/2',90:'1'}[a]||sinD(a).toFixed(3);
+  const cosStr={0:'1',30:'√3/2',45:'√2/2',60:'1/2',90:'0'}[a]||cosD(a).toFixed(3);
+  const vx=(v*cosD(a)).toFixed(3);
+  const vy=(v*sinD(a)).toFixed(3);
+  let h=`<div class="info-box"><strong>Step 1 — decompose velocity at θ = ${a}°</strong><br>
+    sin(${a}°) = ${sinStr}, cos(${a}°) = ${cosStr}<br>
+    vₓ = ${v}·${cosStr} = <strong>${vx} m/s</strong><br>
+    v_y = ${v}·${sinStr} = <strong>${vy} m/s</strong></div>`;
+  h+=`<div class="info-box"><strong>Step 2 — equations of motion</strong><br>
+    x(t) = vₓ·t = ${vx}·t<br>
+    y(t) = v_y·t − ½g·t² = ${vy}·t − 5t²</div>`;
+  h+=`<div class="info-box"><strong>Step 3 — check both targets</strong></div>`;
+  h+=`<div class="ex-line"><span class="ek">t at wall (x=20): t = 20/${vx}</span><span class="ev">${res.tA} s</span></div>`;
+  h+=`<div class="ex-line"><span class="ek">y = ${vy}×${res.tA} − 5×${res.tA}²</span><span class="ev">${res.yA} m ${res.hitA?'✓':'✗'} (need ${WALL_H})</span></div>`;
+  h+=`<div class="ex-line"><span class="ek">t at x=40: t = 40/${vx}</span><span class="ev">${res.tB} s</span></div>`;
+  h+=`<div class="ex-line"><span class="ek">y = ${vy}×${res.tB} − 5×${res.tB}²</span><span class="ev">${res.yB} m ${res.hitB?'✓':'✗'} (need 0)</span></div>`;
+  if(!success){
+    h+=`<div class="answer-box"><strong>Correct answer: θ = 45°, v = 20 m/s</strong><br>
+      vₓ = v_y = 20·(√2/2) = 14.142 m/s<br>
+      t at x=20: 1.414 s → y = 14.142×1.414 − 5×2 = 20 − 10 = <strong>10 m ✓</strong><br>
+      t at x=40: 2.828 s → y = 14.142×2.828 − 5×8 = 40 − 40 = <strong>0 m ✓</strong></div>`;
+  }
+  document.getElementById('ex-body').innerHTML=h;
+  document.getElementById('explainer').style.display='block';
+}
+
+document.getElementById('angle-btns').addEventListener('click',e=>{
+  let b=e.target.closest('.abtn'); if(!b)return;
+  document.querySelectorAll('.abtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  angle=parseInt(b.dataset.a);
+  document.getElementById('a-val').textContent=angle+'°';
+  if(!animating) drawScene([],null,null,null,null);
+});
+
+document.getElementById('v-sl').addEventListener('input',e=>{
+  vel=parseInt(e.target.value);
+  document.getElementById('v-val').textContent=vel+' m/s';
+  if(!animating) drawScene([],null,null,null,null);
+});
+
+document.getElementById('fire-btn').addEventListener('click',()=>{
+  if(animating||gameOver)return;
+  animating=true;
+  document.getElementById('fire-btn').disabled=true;
+  document.getElementById('result-msg').style.display='none';
+  let trail=getTraj(vel,angle);
+  let res=checkHit(vel,angle);
+  let i=0;
+  function step(){
+    if(i<trail.length){
+      drawScene(trail.slice(0,i+1),trail[i][0],trail[i][1],'fly',null);
+      i+=2; requestAnimationFrame(step);
+    } else {
+      drawScene(trail,trail[trail.length-1][0],trail[trail.length-1][1],'boom',res);
+      animating=false;
+      document.getElementById('fire-btn').disabled=false;
+      setTimeout(()=>resolve(res),300);
+    }
+  }
+  step();
+});
+
+function resolve(res){
+  let msg=document.getElementById('result-msg');
+  msg.style.display='block';
+  if(res.hitA&&res.hitB){
+    msg.className='result-msg win';
+    msg.textContent='Both bottles hit! Perfect shot.';
+    endGame(true,res);
+  } else {
+    msg.className='result-msg hint';
+    msg.textContent=getHint(res);
+    let dots=document.getElementById('dots-row');
+    dots.children[attempt].className='dot used';
+    if(attempt>=MAX_TRIES){ endGame(false,res); }
+    else{
+      attempt++;
+      document.getElementById('score-live').textContent=MARKS[attempt-1];
+      buildDots();
+      document.getElementById('reset-btn').style.display='block';
+    }
+  }
+}
+
+function endGame(success,res){
+  gameOver=true;
+  let elapsed=Math.round((Date.now()-startTime)/1000);
+  let marks=success?MARKS[attempt-1]:0;
+  document.getElementById('fire-btn').disabled=true;
+  let sr=document.getElementById('score-row'); sr.style.display='grid';
+  document.getElementById('om').textContent=marks;
+  document.getElementById('oa').textContent=attempt;
+  document.getElementById('ot').textContent=elapsed+'s';
+  buildExplainer(vel,angle,res,success);
+  window.__lastGameOutput={gameId:'mechanics_projectile_bottles_04',chapter:'Mechanics',
+    subtopic:'Projectile Motion',marks,maxMarks:100,attempts:attempt,
+    maxAttempts:MAX_TRIES,timeTaken:elapsed,success};
+}
+
+document.getElementById('ex-head').addEventListener('click',()=>{
+  let b=document.getElementById('ex-body');
+  let open=b.classList.toggle('open');
+  document.getElementById('ex-arr').textContent=open?'▲':'▼';
+});
+
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  document.getElementById('reset-btn').style.display='none';
+  document.getElementById('result-msg').style.display='none';
+  drawScene([],null,null,null,null);
+});
+
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>drawScene([],null,null,null,null));
+buildDots();
+drawScene([],null,null,null,null);
+</script>
+</body>
+</html>
