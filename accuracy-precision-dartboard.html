@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precision & Accuracy — Dartboard Game</title>
+<style>
+  :root {
+    --bg:#ffffff; --bg2:#f5f5f3; --bg3:#ebebeb;
+    --text:#1a1a18; --text2:#5f5e5a; --text3:#888780;
+    --border:rgba(0,0,0,0.13); --border2:rgba(0,0,0,0.25);
+    --info-bg:#E6F1FB; --info-tx:#0C447C;
+    --success-bg:#E1F5EE; --success-tx:#085041;
+    --warn-bg:#FAEEDA; --warn-tx:#633806;
+    --danger-bg:#FCEBEB; --danger-tx:#501313;
+    --radius:8px; --radius-lg:12px;
+    --mono:'Courier New',monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#1a1a1a; --bg2:#252525; --bg3:#303030;
+      --text:#f0f0ee; --text2:#a0a09a; --text3:#666660;
+      --border:rgba(255,255,255,0.13); --border2:rgba(255,255,255,0.25);
+      --info-bg:#0C447C; --info-tx:#B5D4F4;
+      --success-bg:#085041; --success-tx:#9FE1CB;
+      --warn-bg:#633806; --warn-tx:#FAC775;
+      --danger-bg:#501313; --danger-tx:#F7C1C1;
+    }
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{
+    background:var(--bg);color:var(--text);
+    font-family:var(--sans);min-height:100vh;
+    display:flex;justify-content:center;
+    padding:20px 12px 40px;
+  }
+  .wrap{width:100%;max-width:420px}
+  .instruct{
+    font-size:13px;color:var(--text2);line-height:1.6;
+    padding:10px 12px;background:var(--bg2);
+    border-radius:var(--radius);margin-bottom:10px;
+  }
+  .instruct strong{color:var(--text)}
+  .board-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+  .board-wrap{
+    flex-shrink:0;width:220px;height:220px;
+    border-radius:50%;overflow:hidden;
+    border:0.5px solid var(--border2);background:var(--bg);
+  }
+  canvas.board{display:block;width:220px;height:220px}
+  .side-panel{flex:1;display:flex;flex-direction:column;gap:10px;padding-top:4px}
+  .tremor-box{
+    background:var(--bg2);border-radius:var(--radius);
+    padding:10px 12px;
+  }
+  .tremor-title{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .tremor-bars{display:flex;flex-direction:column;gap:4px}
+  .tbar-row{display:flex;align-items:center;gap:6px}
+  .tbar-label{font-size:10px;color:var(--text2);width:14px;text-align:right;flex-shrink:0}
+  .tbar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+  .tbar-fill{height:100%;border-radius:3px;transition:width .4s}
+  .tremor-level{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:4px}
+  .throw-dots{display:flex;gap:5px;flex-wrap:wrap}
+  .tdot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--border2);transition:background .2s;
+  }
+  .tdot.done{background:#E24B4A}
+  .tdot.next{background:#BA7517;box-shadow:0 0 0 2px rgba(186,117,23,0.25)}
+  .throw-status{font-size:11px;color:var(--text2);font-style:italic;min-height:16px}
+  .throw-btn{
+    width:100%;padding:12px;font-size:14px;font-weight:500;
+    background:var(--text);color:var(--bg);
+    border:none;border-radius:var(--radius);cursor:pointer;
+    font-family:var(--sans);transition:opacity .15s;margin-bottom:6px;
+  }
+  .throw-btn:hover{opacity:0.85}
+  .throw-btn:disabled{opacity:0.3;cursor:not-allowed}
+  .analysis{display:none;margin-top:4px}
+  .section-label{
+    font-size:10px;font-weight:500;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;
+  }
+  .reveal-pill-single{
+    padding:8px 12px;background:var(--bg2);
+    border-radius:var(--radius);margin-bottom:10px;
+    font-size:12px;color:var(--text2);line-height:1.5;
+  }
+  .reveal-pill-single strong{color:var(--text)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .stat{background:var(--bg2);border-radius:var(--radius);padding:10px 12px}
+  .stat .sl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .stat .sv{font-size:20px;font-weight:500;color:var(--text);font-family:var(--mono)}
+  .stat .sd{font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4}
+  .verdict{border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;border:0.5px solid var(--border)}
+  .verdict h3{font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+  .verdict p{font-size:12px;color:var(--text2);line-height:1.65}
+  .verdict p strong{color:var(--text)}
+  .defn-block{
+    padding:10px 12px;margin-bottom:8px;
+    font-size:12px;line-height:1.65;border-left:3px solid;
+  }
+  .defn-block strong{display:block;margin-bottom:3px}
+  .defn-block.acc{background:var(--info-bg);color:var(--info-tx);border-color:#185FA5;border-radius:0}
+  .defn-block.prec{background:var(--success-bg);color:var(--success-tx);border-color:#1D9E75;border-radius:0}
+  .replay-btn{
+    width:100%;padding:10px;font-size:13px;font-weight:500;
+    background:var(--bg2);color:var(--text);
+    border:0.5px solid var(--border2);border-radius:var(--radius);
+    cursor:pointer;font-family:var(--sans);
+  }
+  .replay-btn:hover{background:var(--bg3)}
+  footer{
+    margin-top:32px;padding-top:14px;
+    border-top:0.5px solid var(--border);
+    font-size:11px;color:var(--text3);text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="instruct">
+    Watch the <strong>moving crosshair</strong> — your hand is shaking! When it drifts near the bullseye, press <strong>Throw dart</strong>. The tremor level changes each round.
+  </div>
+
+  <div class="board-row">
+    <div class="board-wrap">
+      <canvas class="board" id="bc" width="220" height="220"></canvas>
+    </div>
+    <div class="side-panel">
+      <div class="tremor-box">
+        <div class="tremor-title">Hand tremor</div>
+        <div class="tremor-bars">
+          <div class="tbar-row">
+            <div class="tbar-label">X</div>
+            <div class="tbar-track"><div class="tbar-fill" id="tbar-x" style="width:50%;background:#378ADD"></div></div>
+          </div>
+          <div class="tbar-row">
+            <div class="tbar-label">Y</div>
+            <div class="tbar-track"><div class="tbar-fill" id="tbar-y" style="width:50%;background:#378ADD"></div></div>
+          </div>
+        </div>
+        <div class="tremor-level" id="tremor-level">— steady</div>
+      </div>
+      <div class="throw-dots" id="throw-dots"></div>
+      <div class="throw-status" id="throw-status">waiting…</div>
+    </div>
+  </div>
+
+  <button class="throw-btn" id="throw-btn">Throw dart</button>
+
+  <div class="analysis" id="analysis">
+    <div class="section-label">Analysis</div>
+
+    <div class="reveal-pill-single">
+      Hidden tremor this session: <strong id="rev-tremor">—</strong>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="sl">Accuracy</div>
+        <div class="sv" id="acc-val">—</div>
+        <div class="sd">centroid distance from bullseye</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Precision</div>
+        <div class="sv" id="prec-val">—</div>
+        <div class="sd">spread of throws (std dev)</div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict-box"></div>
+
+    <div class="defn-block acc">
+      <strong>Accuracy</strong>
+      How close the average of all throws is to the true target (bullseye). Even without wind, if you tend to aim slightly off-centre, your accuracy suffers — a <em>systematic error</em>.
+    </div>
+    <div class="defn-block prec">
+      <strong>Precision</strong>
+      How tightly clustered the throws are, regardless of where they land. Hand tremor introduces a different random offset each throw — a <em>random error</em> — that scatters results and hurts precision.
+    </div>
+
+    <button class="replay-btn" id="replay-btn">Play again</button>
+  </div>
+
+  <footer>Precision &amp; Accuracy · Physics Measurement · Made with Claude</footer>
+</div>
+
+<script>
+const TOTAL=8;
+const S=220, CX=110, CY=110, CR=100;
+
+const bc=document.getElementById('bc');
+const bctx=bc.getContext('2d');
+
+let darts=[], throwCount=0, gameOver=false;
+let tremorStr=0, allTremor=[];
+let crossX=CX, crossY=CY, velX=0, velY=0;
+let targetX=CX, targetY=CY;
+let animId=null, lastTime=0;
+
+function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+
+function randNorm(){
+  let u=0,v=0;
+  while(!u)u=Math.random(); while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function newTremor(){
+  tremorStr=10+Math.random()*22;
+  allTremor.push(tremorStr);
+  updateTremorUI();
+}
+
+function updateTremorUI(){
+  let pct=Math.min(tremorStr/32*100,100).toFixed(0);
+  let col=tremorStr<16?'#639922':tremorStr<24?'#BA7517':'#E24B4A';
+  document.getElementById('tbar-x').style.width=pct+'%';
+  document.getElementById('tbar-x').style.background=col;
+  document.getElementById('tbar-y').style.width=(pct*0.85)+'%';
+  document.getElementById('tbar-y').style.background=col;
+  let label=tremorStr<14?'steady':tremorStr<20?'moderate':'shaky';
+  document.getElementById('tremor-level').textContent=tremorStr.toFixed(1)+' — '+label;
+}
+
+function buildDots(){
+  let row=document.getElementById('throw-dots');
+  row.innerHTML='';
+  for(let i=0;i<TOTAL;i++){
+    let d=document.createElement('div');
+    d.className='tdot'+(i<throwCount?' done':i===throwCount?' next':'');
+    row.appendChild(d);
+  }
+}
+
+function setNewTarget(){
+  let a=Math.random()*Math.PI*2;
+  let r=Math.random()*CR*0.75;
+  targetX=CX+Math.cos(a)*r;
+  targetY=CY+Math.sin(a)*r;
+}
+
+function drawBoard(){
+  const dark=isDark();
+  bctx.clearRect(0,0,S,S);
+
+  bctx.fillStyle=dark?'#1a1a1a':'#ffffff';
+  bctx.beginPath(); bctx.arc(CX,CY,CR,0,Math.PI*2); bctx.fill();
+
+  const rings=[
+    {r:CR,    fill:dark?'#1a1a1a':'#f8f6f2'},
+    {r:CR*0.8,fill:dark?'#222222':'#f0ede6'},
+    {r:CR*0.6,fill:dark?'#1a1a1a':'#f8f6f2'},
+    {r:CR*0.4,fill:dark?'#222222':'#f0ede6'},
+    {r:CR*0.2,fill:dark?'#1a1a1a':'#f8f6f2'},
+  ];
+  rings.forEach(r=>{
+    bctx.beginPath(); bctx.arc(CX,CY,r.r,0,Math.PI*2);
+    bctx.fillStyle=r.fill; bctx.fill();
+    bctx.strokeStyle=dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)';
+    bctx.lineWidth=0.5; bctx.stroke();
+  });
+
+  bctx.beginPath(); bctx.arc(CX,CY,CR*0.07,0,Math.PI*2);
+  bctx.fillStyle='#E24B4A'; bctx.fill();
+
+  const axcol=dark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)';
+  bctx.strokeStyle=axcol; bctx.lineWidth=0.5;
+  bctx.beginPath(); bctx.moveTo(CX-CR,CY); bctx.lineTo(CX+CR,CY); bctx.stroke();
+  bctx.beginPath(); bctx.moveTo(CX,CY-CR); bctx.lineTo(CX,CY+CR); bctx.stroke();
+
+  const lbl=dark?'rgba(255,255,255,0.18)':'rgba(0,0,0,0.18)';
+  bctx.fillStyle=lbl; bctx.font='8px monospace'; bctx.textAlign='center';
+  [{r:0.8,v:5},{r:0.6,v:10},{r:0.4,v:20},{r:0.2,v:50}].forEach(item=>{
+    bctx.fillText(item.v,CX,CY-CR*item.r+3);
+  });
+  bctx.textAlign='left';
+
+  darts.forEach((d,i)=>{
+    bctx.beginPath(); bctx.arc(d.x,d.y,4.5,0,Math.PI*2);
+    bctx.fillStyle='rgba(229,75,74,0.88)'; bctx.fill();
+    bctx.strokeStyle=dark?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.9)';
+    bctx.lineWidth=1; bctx.stroke();
+    bctx.beginPath(); bctx.arc(d.x,d.y,1.3,0,Math.PI*2);
+    bctx.fillStyle='#fff'; bctx.fill();
+    bctx.fillStyle=dark?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.45)';
+    bctx.font='bold 8px monospace';
+    bctx.fillText(i+1,d.x+5,d.y-3);
+  });
+
+  if(!gameOver){
+    let sz=11;
+    bctx.strokeStyle='rgba(55,138,221,0.9)'; bctx.lineWidth=1.5;
+    bctx.beginPath(); bctx.moveTo(crossX-sz,crossY); bctx.lineTo(crossX-3,crossY); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(crossX+3,crossY);  bctx.lineTo(crossX+sz,crossY); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(crossX,crossY-sz); bctx.lineTo(crossX,crossY-3); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(crossX,crossY+3);  bctx.lineTo(crossX,crossY+sz); bctx.stroke();
+    bctx.beginPath(); bctx.arc(crossX,crossY,3,0,Math.PI*2);
+    bctx.strokeStyle='rgba(55,138,221,0.65)'; bctx.lineWidth=1; bctx.stroke();
+
+    let d=Math.sqrt((crossX-CX)**2+(crossY-CY)**2);
+    document.getElementById('throw-status').textContent=
+      d<CR*0.07?'bullseye!':d<CR*0.2?'very close':d<CR*0.4?'close':'off target';
+  }
+}
+
+function dist(x1,y1,x2,y2){return Math.sqrt((x1-x2)**2+(y1-y2)**2);}
+
+function animLoop(ts){
+  let dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
+  let ax=(targetX-crossX)*2.2, ay=(targetY-crossY)*2.2;
+  velX+=ax*dt; velY+=ay*dt;
+  velX*=0.92; velY*=0.92;
+  crossX+=velX*dt*55; crossY+=velY*dt*55;
+  let dx=crossX-CX, dy=crossY-CY, r=Math.sqrt(dx*dx+dy*dy);
+  if(r>CR*0.88){crossX=CX+dx/r*CR*0.88; crossY=CY+dy/r*CR*0.88;}
+  if(dist(crossX,crossY,targetX,targetY)<12) setNewTarget();
+  drawBoard();
+  animId=requestAnimationFrame(animLoop);
+}
+
+document.getElementById('throw-btn').addEventListener('click',()=>{
+  if(gameOver)return;
+  let ax=crossX-CX, ay=crossY-CY;
+  let fx=CX+ax+randNorm()*tremorStr;
+  let fy=CY+ay+randNorm()*tremorStr;
+  fx=Math.max(CX-CR*0.95,Math.min(CX+CR*0.95,fx));
+  fy=Math.max(CY-CR*0.95,Math.min(CY+CR*0.95,fy));
+  darts.push({x:fx,y:fy});
+  throwCount++;
+  buildDots();
+  if(throwCount<TOTAL){
+    newTremor(); setNewTarget();
+  } else {
+    gameOver=true;
+    cancelAnimationFrame(animId);
+    drawBoard();
+    document.getElementById('throw-btn').disabled=true;
+    document.getElementById('throw-status').textContent='all throws done';
+    setTimeout(showAnalysis,500);
+  }
+});
+
+function showAnalysis(){
+  let cx2=darts.reduce((a,d)=>a+d.x,0)/darts.length;
+  let cy2=darts.reduce((a,d)=>a+d.y,0)/darts.length;
+  let spread=Math.sqrt(darts.reduce((a,d)=>a+(d.x-cx2)**2+(d.y-cy2)**2,0)/darts.length);
+  let accDist=dist(cx2,cy2,CX,CY);
+
+  const pct=v=>(v/CR*100).toFixed(1)+'%';
+  document.getElementById('acc-val').textContent=pct(accDist);
+  document.getElementById('prec-val').textContent=pct(spread);
+
+  let avgTremor=allTremor.reduce((a,b)=>a+b,0)/allTremor.length;
+  let tLabel=avgTremor<14?'steady':avgTremor<22?'moderate':'shaky';
+  document.getElementById('rev-tremor').textContent=tLabel+' (avg '+avgTremor.toFixed(1)+')';
+
+  drawFinalBoard(cx2,cy2,spread);
+
+  let highAcc=accDist<CR*0.3, highPrec=spread<CR*0.25;
+  let title,body,bg;
+  if(highAcc&&highPrec){
+    title='High accuracy, high precision';
+    body='Your darts cluster tightly <strong>around the bullseye</strong>. You timed your throws well and tremor had little effect. This is the ideal outcome in any scientific measurement.';
+    bg='var(--success-bg)';
+  } else if(!highAcc&&highPrec){
+    title='Low accuracy, high precision';
+    body='Your darts are tightly clustered — but <strong>offset from the bullseye</strong>. You were consistent (precise), but your aim tended to one side. A systematic error in your technique.';
+    bg='var(--warn-bg)';
+  } else if(highAcc&&!highPrec){
+    title='High accuracy, low precision';
+    body='Your darts average near the bullseye but are <strong>spread out widely</strong>. Tremor added a different random error to each throw. Accurate on average, but not repeatable.';
+    bg='var(--warn-bg)';
+  } else {
+    title='Low accuracy, low precision';
+    body='Darts are both scattered <strong>and</strong> off-centre. Tremor scattered individual throws, and a consistent aim-offset pulled the cluster away from the target.';
+    bg='var(--danger-bg)';
+  }
+  let vb=document.getElementById('verdict-box');
+  vb.style.background=bg;
+  vb.innerHTML=`<h3>${title}</h3><p>${body}</p>`;
+  document.getElementById('analysis').style.display='block';
+}
+
+function drawFinalBoard(cx2,cy2,spread){
+  drawBoard();
+  bctx.beginPath(); bctx.arc(cx2,cy2,Math.max(spread,5),0,Math.PI*2);
+  bctx.strokeStyle='rgba(55,138,221,0.55)'; bctx.lineWidth=1.5;
+  bctx.setLineDash([4,3]); bctx.stroke(); bctx.setLineDash([]);
+  bctx.beginPath(); bctx.arc(cx2,cy2,4.5,0,Math.PI*2);
+  bctx.fillStyle='#185FA5'; bctx.fill();
+  bctx.strokeStyle='#fff'; bctx.lineWidth=1.2; bctx.stroke();
+  bctx.strokeStyle='rgba(55,138,221,0.6)'; bctx.lineWidth=1;
+  bctx.beginPath(); bctx.moveTo(cx2,cy2); bctx.lineTo(CX,CY); bctx.stroke();
+  const dark=isDark();
+  bctx.fillStyle=dark?'rgba(255,255,255,0.45)':'rgba(0,0,0,0.45)';
+  bctx.font='8px monospace';
+  bctx.fillText('centroid',cx2+6,cy2-4);
+}
+
+document.getElementById('replay-btn').addEventListener('click',()=>{
+  darts=[]; throwCount=0; gameOver=false; allTremor=[];
+  crossX=CX; crossY=CY; velX=0; velY=0;
+  document.getElementById('throw-btn').disabled=false;
+  document.getElementById('analysis').style.display='none';
+  document.getElementById('throw-status').textContent='waiting…';
+  newTremor(); setNewTarget(); buildDots();
+  lastTime=performance.now();
+  animId=requestAnimationFrame(animLoop);
+});
+
+newTremor(); setNewTarget(); buildDots();
+lastTime=performance.now();
+animId=requestAnimationFrame(animLoop);
+</script>
+</body>
+</html>
