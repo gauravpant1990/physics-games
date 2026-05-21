@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relative Motion — Reference Frame Switcher</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f2efe9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;justify-content:center}
+
+  .wrap{width:380px;max-width:100%;margin:12px auto 0;padding:0 12px 40px;overflow:hidden}
+
+  .frame-row{display:flex;gap:6px;margin-bottom:14px}
+  .fbtn{flex:1;padding:10px 4px;font-size:12px;font-weight:500;border:1.5px solid rgba(0,0,0,0.18);border-radius:20px;background:#ffffff;color:#5f5e5a;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;white-space:nowrap;overflow:hidden}
+  .fbtn:hover{background:#f0ede8}
+  .fbtn.active{color:#fff;border-color:transparent}
+  .fbtn.ground.active{background:#5f5e5a}
+  .fbtn.trainA.active{background:#BA7517}
+  .fbtn.trainB.active{background:#185FA5}
+
+  .scene-card{background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.12);overflow:hidden;margin-bottom:12px}
+  canvas{display:block;width:100%}
+
+  .controls-card{background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:12px}
+  .ctrl-block{padding:12px 0;border-bottom:0.5px solid rgba(0,0,0,0.08)}
+  .ctrl-block:last-child{border-bottom:none;padding-bottom:0}
+  .ctrl-block:first-child{padding-top:0}
+  .ctrl-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .ctrl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .ctrl-label{font-size:13px;font-weight:500;color:#1a1a18;flex:1}
+  .ctrl-val{font-size:13px;font-weight:500;font-family:'Courier New',monospace;flex-shrink:0}
+
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:36px;background:transparent;outline:none;cursor:pointer;padding:0;margin:0;display:block}
+  input[type=range]::-webkit-slider-runnable-track{height:36px;border-radius:18px}
+  input[type=range]::-moz-range-track{height:36px;border-radius:18px}
+  input[type=range]#va::-webkit-slider-runnable-track{background:#BA7517}
+  input[type=range]#va::-moz-range-track{background:#BA7517}
+  input[type=range]#vb::-webkit-slider-runnable-track{background:#185FA5}
+  input[type=range]#vb::-moz-range-track{background:#185FA5}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:6px;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer}
+
+  .vectors-card{background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.12);padding:14px;margin-bottom:12px}
+  .vec-title{font-size:11px;font-weight:500;color:#5f5e5a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+  .vec-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .vec-row:last-child{margin-bottom:0}
+  .vec-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .vec-name{font-size:12px;color:#5f5e5a;width:72px;flex-shrink:0}
+  .vec-bar-wrap{flex:1;min-width:0;height:8px;background:#f0ede8;border-radius:4px;overflow:visible;position:relative}
+  .vec-zero{position:absolute;left:50%;top:-2px;width:1px;height:12px;background:rgba(0,0,0,0.15)}
+  .vec-fill{height:100%;border-radius:4px;position:absolute;top:0;transition:left .15s,width .15s}
+  .vec-num{font-size:12px;font-weight:500;font-family:'Courier New',monospace;width:68px;text-align:right;flex-shrink:0}
+
+  .eq-card{background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.12);padding:14px;overflow:hidden}
+  .eq-title{font-size:11px;font-weight:500;color:#5f5e5a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+  .eq-line{font-size:13px;font-family:'Courier New',monospace;color:#1a1a18;line-height:1.9;word-break:break-word;white-space:normal}
+
+  footer{margin-top:32px;padding-top:14px;border-top:0.5px solid rgba(0,0,0,0.12);font-size:11px;color:#888780;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="frame-row">
+    <button class="fbtn ground active" data-f="ground">Ground</button>
+    <button class="fbtn trainA" data-f="A">Train A</button>
+    <button class="fbtn trainB" data-f="B">Train B</button>
+  </div>
+
+  <div class="scene-card">
+    <canvas id="sc" height="160" role="img" aria-label="Animated track showing two trains in the selected reference frame"></canvas>
+  </div>
+
+  <div class="controls-card">
+    <div class="ctrl-block">
+      <div class="ctrl-top">
+        <div class="ctrl-dot" style="background:#BA7517"></div>
+        <div class="ctrl-label">Train A</div>
+        <div class="ctrl-val" id="va-val" style="color:#BA7517">+30 km/h</div>
+      </div>
+      <input type="range" id="va" min="-60" max="60" value="30" step="5">
+    </div>
+    <div class="ctrl-block">
+      <div class="ctrl-top">
+        <div class="ctrl-dot" style="background:#185FA5"></div>
+        <div class="ctrl-label">Train B</div>
+        <div class="ctrl-val" id="vb-val" style="color:#185FA5">−20 km/h</div>
+      </div>
+      <input type="range" id="vb" min="-60" max="60" value="-20" step="5">
+    </div>
+  </div>
+
+  <div class="vectors-card">
+    <div class="vec-title">Velocities as seen from this frame</div>
+    <div class="vec-row">
+      <div class="vec-dot" style="background:#BA7517"></div>
+      <div class="vec-name">Train A</div>
+      <div class="vec-bar-wrap"><div class="vec-zero"></div><div class="vec-fill" id="bar-a" style="background:#BA7517"></div></div>
+      <div class="vec-num" id="num-a" style="color:#BA7517">—</div>
+    </div>
+    <div class="vec-row">
+      <div class="vec-dot" style="background:#185FA5"></div>
+      <div class="vec-name">Train B</div>
+      <div class="vec-bar-wrap"><div class="vec-zero"></div><div class="vec-fill" id="bar-b" style="background:#185FA5"></div></div>
+      <div class="vec-num" id="num-b" style="color:#185FA5">—</div>
+    </div>
+    <div class="vec-row">
+      <div class="vec-dot" style="background:#888780"></div>
+      <div class="vec-name">Ground</div>
+      <div class="vec-bar-wrap"><div class="vec-zero"></div><div class="vec-fill" id="bar-g" style="background:#888780"></div></div>
+      <div class="vec-num" id="num-g" style="color:#5f5e5a">—</div>
+    </div>
+  </div>
+
+  <div class="eq-card">
+    <div class="eq-title">Equation</div>
+    <div class="eq-line" id="eq-line">—</div>
+  </div>
+
+  <footer>Relative Motion · Reference Frames · Made with Claude</footer>
+</div>
+
+<script>
+const cv=document.getElementById('sc');
+const ctx=cv.getContext('2d');
+const CW=356; cv.width=CW; cv.height=160;
+const CH=160,TRACK_Y=100,GROUND_Y=108;
+const COL_A='#BA7517',COL_B='#185FA5';
+
+let frame='ground',vA=30,vB=-20;
+let posA=CW*0.3,posB=CW*0.65;
+let lastTs=0,poleOff=0,railOff=0;
+
+function fmtV(v){return(v>=0?'+':'')+v+' km/h';}
+
+function drawTrain(cx2,col,label,isStationary){
+  [-CW,0,CW].forEach(offset=>{
+    let x=cx2+offset;
+    if(x<-80||x>CW+80)return;
+    let tw=54,th=28,ty=GROUND_Y-th;
+    ctx.save();
+    ctx.fillStyle=col;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x-tw/2,ty,tw,th,5);ctx.fill();}
+    else{ctx.fillRect(x-tw/2,ty,tw,th);}
+    ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.fillRect(x-tw/2+6,ty+5,14,10);
+    ctx.fillRect(x-tw/2+24,ty+5,14,10);
+    ctx.fillStyle='rgba(0,0,0,0.2)';
+    ctx.beginPath();ctx.arc(x-14,GROUND_Y+5,6,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(x+14,GROUND_Y+5,6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font='bold 11px monospace';ctx.textAlign='center';
+    ctx.fillText(label,x,GROUND_Y+20);
+    if(isStationary){
+      ctx.fillStyle='#1D9E75';
+      ctx.font='bold 10px sans-serif';
+      ctx.fillText('stationary',x,ty-6);
+    }
+    ctx.restore();
+  });
+}
+
+function drawScene(ts){
+  let dt=(ts-lastTs)/1000;lastTs=ts;
+  let vObs=frame==='A'?vA:frame==='B'?vB:0;
+  let spd=0.028;
+  posA+=(vA-vObs)*spd*dt*1000;posB+=(vB-vObs)*spd*dt*1000;
+  posA=((posA%CW)+CW)%CW;posB=((posB%CW)+CW)%CW;
+  poleOff+=-vObs*spd*dt*1000*0.45;
+  railOff+=-vObs*spd*dt*1000*0.9;
+
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#f2efe9';ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle='#e8f0fb';ctx.fillRect(0,0,CW,TRACK_Y-10);
+  ctx.fillStyle='#c8b89a';ctx.fillRect(0,TRACK_Y,CW,CH-TRACK_Y);
+  ctx.strokeStyle='#a09078';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(0,TRACK_Y);ctx.lineTo(CW,TRACK_Y);ctx.stroke();
+
+  let ps=80,po=((poleOff%ps)+ps)%ps;
+  ctx.strokeStyle='#8b7355';ctx.lineWidth=1.5;
+  for(let px=po-ps;px<CW+ps;px+=ps){
+    ctx.beginPath();ctx.moveTo(px,TRACK_Y-35);ctx.lineTo(px,TRACK_Y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(px-10,TRACK_Y-35);ctx.lineTo(px+10,TRACK_Y-35);ctx.stroke();
+  }
+
+  let rs=40,ro=((railOff%rs)+rs)%rs;
+  ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1;
+  for(let rx=ro-rs;rx<CW+rs;rx+=rs){
+    ctx.beginPath();ctx.moveTo(rx,TRACK_Y+2);ctx.lineTo(rx+18,TRACK_Y+2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(rx,TRACK_Y+8);ctx.lineTo(rx+18,TRACK_Y+8);ctx.stroke();
+  }
+
+  let relA=vA-vObs,relB=vB-vObs;
+  drawTrain(posA,COL_A,'A',Math.abs(relA)<1);
+  drawTrain(posB,COL_B,'B',Math.abs(relB)<1);
+
+  ctx.fillStyle='rgba(0,0,0,0.38)';
+  ctx.font='11px sans-serif';ctx.textAlign='left';
+  let lbl=frame==='ground'?'Observer: Ground':frame==='A'?'Observer: Train A':'Observer: Train B';
+  ctx.fillText(lbl,10,20);
+}
+
+function setBar(id,v){
+  let bar=document.getElementById(id);
+  let pct=Math.max(-1,Math.min(1,v/60));
+  if(pct>=0){bar.style.left='50%';bar.style.width=(pct*50)+'%';}
+  else{bar.style.left=(50+pct*50)+'%';bar.style.width=(-pct*50)+'%';}
+}
+
+function updateUI(){
+  let vObs=frame==='A'?vA:frame==='B'?vB:0;
+  let relA=vA-vObs,relB=vB-vObs,relG=-vObs;
+  document.getElementById('num-a').textContent=fmtV(relA);
+  document.getElementById('num-b').textContent=fmtV(relB);
+  document.getElementById('num-g').textContent=fmtV(relG);
+  setBar('bar-a',relA);setBar('bar-b',relB);setBar('bar-g',relG);
+  document.getElementById('va-val').textContent=fmtV(vA);
+  document.getElementById('vb-val').textContent=fmtV(vB);
+  let eq=document.getElementById('eq-line');
+  if(frame==='ground'){
+    eq.innerHTML=`v<sub>A</sub> = <span style="color:#BA7517;font-weight:500">${fmtV(vA)}</span><br>v<sub>B</sub> = <span style="color:#185FA5;font-weight:500">${fmtV(vB)}</span>`;
+  } else if(frame==='A'){
+    eq.innerHTML=`v<sub>B|A</sub> = v<sub>B</sub> &minus; v<sub>A</sub><br>= ${vB} &minus; (${vA}) = <span style="color:#BA7517;font-weight:500">${fmtV(relB)}</span>`;
+  } else {
+    eq.innerHTML=`v<sub>A|B</sub> = v<sub>A</sub> &minus; v<sub>B</sub><br>= ${vA} &minus; (${vB}) = <span style="color:#185FA5;font-weight:500">${fmtV(relA)}</span>`;
+  }
+}
+
+function loop(ts){drawScene(ts);requestAnimationFrame(loop);}
+
+document.querySelectorAll('.fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');frame=b.dataset.f;updateUI();
+  });
+});
+document.getElementById('va').addEventListener('input',e=>{vA=parseInt(e.target.value);updateUI();});
+document.getElementById('vb').addEventListener('input',e=>{vB=parseInt(e.target.value);updateUI();});
+
+updateUI();lastTs=performance.now();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
