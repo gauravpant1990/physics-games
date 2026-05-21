@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acceleration, Velocity & Displacement</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f2efe9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;justify-content:center;padding:20px 12px 40px}
+  .wrap{width:100%;max-width:420px}
+  .preset-row{display:flex;gap:5px;margin-bottom:10px}
+  .pbtn{flex:1;padding:8px 2px;font-size:12px;font-weight:500;border:0.5px solid rgba(0,0,0,0.18);border-radius:8px;background:#ffffff;color:#5f5e5a;cursor:pointer;text-align:center;font-family:'Courier New',monospace;transition:background .12s,color .12s}
+  .pbtn:hover{background:#f0ede8}
+  .pbtn.active{background:#BA7517;color:#fff;border-color:#BA7517;box-shadow:0 0 0 2px rgba(186,117,23,0.25)}
+  .graphs{display:flex;flex-direction:column;gap:0;margin-bottom:10px}
+  .graph-block{display:flex;flex-direction:column;margin-bottom:12px}
+  .graph-block:last-child{margin-bottom:0}
+  canvas.graph{display:block;width:100%;border-radius:8px 8px 0 0;border:0.5px solid rgba(0,0,0,0.15);border-bottom:none}
+  .area-tag{display:flex;align-items:center;justify-content:center;padding:5px 12px;font-size:12px;font-weight:700;font-family:'Courier New',monospace;border-radius:0 0 8px 8px;border:0.5px solid rgba(0,0,0,0.15);border-top:none;min-height:26px}
+  .area-tag.v-tag{background:rgba(24,95,165,0.15);color:#185FA5}
+  .area-tag.x-tag{background:rgba(15,110,86,0.15);color:#1D9E75}
+  .graph-block-last canvas.graph{border-radius:8px;border-bottom:0.5px solid rgba(0,0,0,0.15)}
+  .scrub-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:0 2px}
+  .scrub-row label{font-size:12px;color:#5f5e5a;flex-shrink:0}
+  input[type=range]#scrub{flex:1;-webkit-appearance:none;appearance:none;height:36px;background:transparent;outline:none;cursor:pointer;padding:0;margin:0}
+  input[type=range]#scrub::-webkit-slider-runnable-track{height:36px;border-radius:18px;background:#BA7517}
+  input[type=range]#scrub::-moz-range-track{height:36px;border-radius:18px;background:#BA7517}
+  input[type=range]#scrub::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:6px;cursor:pointer}
+  input[type=range]#scrub::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer}
+  .t-val{font-size:12px;font-family:'Courier New',monospace;color:#5f5e5a;min-width:42px;text-align:right}
+  .eq-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .eq{background:#ffffff;border-radius:8px;padding:9px 10px;border-left:3px solid;line-height:1.7}
+  .eq .ef{font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#1a1a18;display:block}
+  .eq .es{font-size:12px;font-weight:700;font-family:'Courier New',monospace;color:#5f5e5a;display:block;margin-top:2px}
+  footer{margin-top:32px;padding-top:14px;border-top:0.5px solid rgba(0,0,0,0.12);font-size:11px;color:#888780;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="preset-row" id="preset-row">
+    <button class="pbtn active" data-p="0">a=0</button>
+    <button class="pbtn" data-p="1">a=c</button>
+    <button class="pbtn" data-p="2">a=t</button>
+    <button class="pbtn" data-p="3">a=t²</button>
+    <button class="pbtn" data-p="4">a=sin t</button>
+  </div>
+
+  <div class="graphs">
+    <div class="graph-block">
+      <canvas class="graph" id="ga" height="126" role="img" aria-label="Acceleration graph"></canvas>
+      <div class="area-tag v-tag" id="tag-a">Δv = ∫a dt = 0.000</div>
+    </div>
+    <div class="graph-block">
+      <canvas class="graph" id="gv" height="126" role="img" aria-label="Velocity graph"></canvas>
+      <div class="area-tag x-tag" id="tag-v">Δx = ∫v dt = 0.000</div>
+    </div>
+    <div class="graph-block graph-block-last">
+      <canvas class="graph" id="gx" height="126" role="img" aria-label="Displacement graph"></canvas>
+    </div>
+  </div>
+
+  <div class="scrub-row">
+    <label>t</label>
+    <input type="range" id="scrub" min="0" max="100" value="100" step="1">
+    <span class="t-val" id="t-disp">t=6.28</span>
+  </div>
+
+  <div class="eq-row">
+    <div class="eq" style="border-color:#BA7517">
+      <span class="ef" id="eq-a">a(t) = 0</span>
+      <span class="es">Δv = ∫a dt</span>
+    </div>
+    <div class="eq" style="border-color:#185FA5">
+      <span class="ef" id="eq-v">v(t) = v₀</span>
+      <span class="es">Δx = ∫v dt</span>
+    </div>
+    <div class="eq" style="border-color:#1D9E75">
+      <span class="ef" id="eq-x">x(t) = v₀t</span>
+      <span class="es">&nbsp;</span>
+    </div>
+  </div>
+
+  <footer>Acceleration · Velocity · Displacement · Made with Claude</footer>
+</div>
+
+<script>
+const W=420, GH=126;
+const PL=40, PR=10, PT=14, PB=20;
+const N=600, T_MAX=2*Math.PI;
+
+const PRESETS=[
+  {a:t=>0,          v:t=>1,               x:t=>t,
+   aR:[-2,2],       vR:[-0.2,2],           xR:[-0.3,7],
+   eqA:'a(t) = 0',  eqV:'v(t) = v₀',      eqX:'x(t) = v₀·t'},
+  {a:t=>1,          v:t=>t,               x:t=>0.5*t*t,
+   aR:[-0.3,2],     vR:[-0.5,7],           xR:[-0.5,22],
+   eqA:'a(t) = c',  eqV:'v(t) = c·t',     eqX:'x(t) = ½c·t²'},
+  {a:t=>t,          v:t=>0.5*t*t,          x:t=>(1/6)*t*t*t,
+   aR:[-0.5,7],     vR:[-0.5,22],          xR:[-0.5,50],
+   eqA:'a(t) = t',  eqV:'v(t) = ½t²',     eqX:'x(t) = ⅙t³'},
+  {a:t=>t*t,        v:t=>(1/3)*t*t*t,      x:t=>(1/12)*Math.pow(t,4),
+   aR:[-0.5,42],    vR:[-1,92],            xR:[-1,160],
+   eqA:'a(t) = t²', eqV:'v(t) = ⅓t³',    eqX:'x(t) = ¹⁄₁₂t⁴'},
+  {a:t=>Math.sin(t),v:t=>1-Math.cos(t),    x:t=>t-Math.sin(t),
+   aR:[-1.5,1.5],   vR:[-0.2,2.3],         xR:[-0.5,7],
+   eqA:'a(t)=sin t',eqV:'v=1−cos t',       eqX:'x=t−sin t'},
+];
+
+const CFG=[
+  {id:'ga',line:'#BA7517',dimLine:'rgba(186,117,23,0.2)', rKey:'aR',fn:'a',label:'a(t)',hasArea:true, areaFill:'rgba(24,95,165,0.22)'},
+  {id:'gv',line:'#185FA5',dimLine:'rgba(24,95,165,0.2)',  rKey:'vR',fn:'v',label:'v(t)',hasArea:true, areaFill:'rgba(15,110,86,0.22)'},
+  {id:'gx',line:'#1D9E75',dimLine:'rgba(29,158,117,0.2)',rKey:'xR',fn:'x',label:'x(t)',hasArea:false,areaFill:null},
+];
+
+let pIdx=0, scrubPct=1;
+CFG.forEach(c=>{
+  let cv=document.getElementById(c.id);
+  cv.width=W; cv.height=GH;
+  c.cv=cv; c.ctx=cv.getContext('2d');
+});
+
+function integrate(fn,tStop){
+  if(tStop<=0)return 0;
+  let steps=400,dt=tStop/steps,sum=0;
+  for(let i=0;i<steps;i++){let t0=i*dt,t1=(i+1)*dt;sum+=0.5*(fn(t0)+fn(t1))*dt;}
+  return sum;
+}
+
+function drawGraph(c,p,tCursor){
+  let ctx=c.ctx;
+  let [rMin,rMax]=p[c.rKey];
+  let fn=p[c.fn];
+  let gw=W-PL-PR, gh=GH-PT-PB;
+  let tStop=tCursor*T_MAX;
+
+  ctx.clearRect(0,0,W,GH);
+  ctx.fillStyle='#f2efe9';
+  ctx.fillRect(0,0,W,GH);
+
+  function cx(t){return PL+(t/T_MAX)*gw;}
+  function cy(v){return PT+gh-(Math.max(rMin,Math.min(rMax,v))-rMin)/(rMax-rMin)*gh;}
+
+  let y0=cy(0);
+  let lblCol='rgba(0,0,0,0.32)';
+
+  if(y0>=PT&&y0<=PT+gh){
+    ctx.strokeStyle='rgba(0,0,0,0.08)';
+    ctx.lineWidth=0.5;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(PL,y0);ctx.lineTo(W-PR,y0);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.fillStyle=lblCol;ctx.font='10px monospace';ctx.textAlign='right';
+  [rMin,0,rMax].forEach(v=>{
+    if(v>=rMin&&v<=rMax)
+      ctx.fillText(Math.abs(v)>=10?v.toFixed(0):v.toFixed(1),PL-4,cy(v)+3);
+  });
+  ctx.fillStyle=lblCol;ctx.textAlign='center';ctx.font='10px monospace';
+  [{t:0,l:'0'},{t:T_MAX/2,l:'π'},{t:T_MAX,l:'2π'}].forEach(({t,l})=>ctx.fillText(l,cx(t),GH-4));
+
+  if(c.hasArea&&tStop>0){
+    let baseY=y0>=PT&&y0<=PT+gh?y0:PT+gh;
+    ctx.beginPath();
+    ctx.moveTo(cx(0),baseY);
+    ctx.lineTo(cx(0),cy(fn(0)));
+    for(let i=1;i<=N;i++){let t=T_MAX*i/N;if(t>tStop)break;ctx.lineTo(cx(t),cy(fn(t)));}
+    ctx.lineTo(cx(Math.min(tStop,T_MAX)),baseY);
+    ctx.closePath();
+    ctx.fillStyle=c.areaFill;ctx.fill();
+  }
+
+  ctx.beginPath();ctx.strokeStyle=c.dimLine;ctx.lineWidth=1.5;
+  for(let i=0;i<=N;i++){let t=T_MAX*i/N;i===0?ctx.moveTo(cx(t),cy(fn(t))):ctx.lineTo(cx(t),cy(fn(t)));}
+  ctx.stroke();
+
+  ctx.beginPath();ctx.strokeStyle=c.line;ctx.lineWidth=2.5;
+  let started=false;
+  for(let i=0;i<=N;i++){
+    let t=T_MAX*i/N;if(t>tStop)break;
+    started?ctx.lineTo(cx(t),cy(fn(t))):ctx.moveTo(cx(t),cy(fn(t)));
+    started=true;
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle=lblCol;ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(PL,PT);ctx.lineTo(PL,PT+gh);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(PL,PT+gh);ctx.lineTo(W-PR,PT+gh);ctx.stroke();
+
+  let curX=cx(tStop);
+  ctx.strokeStyle=c.line;ctx.lineWidth=0.8;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(curX,PT);ctx.lineTo(curX,PT+gh);ctx.stroke();
+  ctx.setLineDash([]);
+
+  let curVal=fn(tStop);
+  let dotX=curX,dotY=cy(curVal);
+  ctx.beginPath();ctx.arc(dotX,dotY,5,0,Math.PI*2);
+  ctx.fillStyle=c.line;ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.95)';ctx.lineWidth=1.5;ctx.stroke();
+
+  let labelTxt=c.label.replace('(t)','')+' = '+curVal.toFixed(2);
+  ctx.font='bold 11px monospace';
+  let tw=ctx.measureText(labelTxt).width;
+  let lx=dotX+9,ly=dotY-7;
+  if(lx+tw+8>W-PR)lx=dotX-tw-13;
+  if(ly<PT+12)ly=dotY+18;
+  let pp=4;
+  ctx.fillStyle='rgba(255,255,255,0.95)';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(lx-pp,ly-11,tw+pp*2,15,3);ctx.fill();}
+  else ctx.fillRect(lx-pp,ly-11,tw+pp*2,15);
+  ctx.fillStyle=c.line;
+  ctx.fillText(labelTxt,lx,ly);
+
+  ctx.font='bold 12px monospace';ctx.fillStyle=c.line;ctx.textAlign='left';
+  ctx.fillText(c.label,PL+5,PT+14);
+}
+
+function render(){
+  let p=PRESETS[pIdx];
+  let tNow=scrubPct*T_MAX;
+  CFG.forEach(c=>drawGraph(c,p,scrubPct));
+  document.getElementById('tag-a').textContent='Δv = ∫a dt = '+integrate(p.a,tNow).toFixed(3);
+  document.getElementById('tag-v').textContent='Δx = ∫v dt = '+integrate(p.v,tNow).toFixed(3);
+  document.getElementById('t-disp').textContent='t='+(tNow.toFixed(2));
+  document.getElementById('eq-a').textContent=p.eqA;
+  document.getElementById('eq-v').textContent=p.eqV;
+  document.getElementById('eq-x').textContent=p.eqX;
+}
+
+document.getElementById('preset-row').addEventListener('click',e=>{
+  let b=e.target.closest('.pbtn');if(!b)return;
+  document.querySelectorAll('.pbtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  pIdx=parseInt(b.dataset.p);render();
+});
+document.getElementById('scrub').addEventListener('input',e=>{
+  scrubPct=parseInt(e.target.value)/100;render();
+});
+render();
+</script>
+</body>
+</html>
