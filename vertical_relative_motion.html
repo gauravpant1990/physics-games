@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vertical Relative Motion — Under Gravity</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f2efe9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;justify-content:center;padding:0 0 40px}
+  .wrap{width:360px;max-width:100%;margin:12px auto 0;padding:0 12px 20px;overflow:hidden}
+  .frame-heading{font-size:11px;font-weight:500;color:#5f5e5a;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .frame-row{display:flex;gap:6px;margin-bottom:12px}
+  .fbtn{flex:1;padding:9px 4px;font-size:12px;font-weight:500;border:1.5px solid rgba(0,0,0,0.2);border-radius:20px;background:#fff;color:#5f5e5a;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;white-space:nowrap}
+  .fbtn:hover{background:#f0ede8}
+  .fbtn.ground.active{background:#5f5e5a;color:#fff;border-color:#5f5e5a;box-shadow:0 0 0 3px rgba(95,94,90,0.2)}
+  .fbtn.b1.active{background:#BA7517;color:#fff;border-color:#BA7517;box-shadow:0 0 0 3px rgba(186,117,23,0.25)}
+  .fbtn.b2.active{background:#185FA5;color:#fff;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,0.25)}
+  .panels{display:flex;gap:8px;margin-bottom:12px}
+  .shaft-card{background:#fff;border-radius:12px;border:0.5px solid rgba(0,0,0,0.12);overflow:hidden;flex-shrink:0}
+  .graph-card{background:#fff;border-radius:12px;border:0.5px solid rgba(0,0,0,0.12);overflow:hidden;flex:1}
+  canvas{display:block}
+  .controls-card{background:#fff;border-radius:12px;border:0.5px solid rgba(0,0,0,0.12);padding:14px;margin-bottom:12px}
+  .ctrl-block{padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.08)}
+  .ctrl-block:last-child{border-bottom:none;padding-bottom:0}
+  .ctrl-block:first-child{padding-top:0}
+  .ctrl-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .ctrl-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .ctrl-label{font-size:13px;font-weight:500;color:#1a1a18;flex:1}
+  .ctrl-val{font-size:13px;font-weight:500;font-family:'Courier New',monospace;flex-shrink:0}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:32px;background:transparent;outline:none;cursor:pointer;padding:0;margin:0;display:block}
+  input[type=range]::-webkit-slider-runnable-track{height:32px;border-radius:16px}
+  input[type=range]::-moz-range-track{height:32px;border-radius:16px}
+  #u1::-webkit-slider-runnable-track{background:#BA7517}
+  #u1::-moz-range-track{background:#BA7517}
+  #u2::-webkit-slider-runnable-track{background:#185FA5}
+  #u2::-moz-range-track{background:#185FA5}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.28);margin-top:5px;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.28);cursor:pointer}
+  .launch-btn{width:100%;margin-bottom:12px;padding:13px;font-size:15px;font-weight:500;background:#1D9E75;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;letter-spacing:.03em;transition:opacity .15s,transform .1s}
+  .launch-btn:hover{opacity:.88}
+  .launch-btn:active{transform:scale(.97)}
+  .insight-card{background:#f5f5f3;border-radius:12px;padding:11px 13px;font-size:12px;color:#5f5e5a;line-height:1.65;border:0.5px solid rgba(0,0,0,0.1)}
+  .insight-card strong{color:#1a1a18}
+  footer{margin-top:28px;padding-top:14px;border-top:0.5px solid rgba(0,0,0,0.1);font-size:11px;color:#888780;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="frame-heading">Choose the frame</div>
+  <div class="frame-row">
+    <button class="fbtn ground active" data-f="ground">Ground</button>
+    <button class="fbtn b1" data-f="b1">Ball 1</button>
+    <button class="fbtn b2" data-f="b2">Ball 2</button>
+  </div>
+
+  <div class="panels">
+    <div class="shaft-card"><canvas id="shaft" width="110" height="270" role="img" aria-label="Vertical shaft showing two balls moving under gravity"></canvas></div>
+    <div class="graph-card"><canvas id="graph" width="208" height="270" role="img" aria-label="Velocity vs time graph for both balls in the selected frame"></canvas></div>
+  </div>
+
+  <div class="controls-card">
+    <div class="ctrl-block">
+      <div class="ctrl-top">
+        <div class="ctrl-dot" style="background:#BA7517"></div>
+        <div class="ctrl-label">Ball 1 — initial speed</div>
+        <div class="ctrl-val" id="u1-val" style="color:#BA7517">20 m/s</div>
+      </div>
+      <input type="range" id="u1" min="5" max="40" value="20" step="5">
+    </div>
+    <div class="ctrl-block">
+      <div class="ctrl-top">
+        <div class="ctrl-dot" style="background:#185FA5"></div>
+        <div class="ctrl-label">Ball 2 — initial speed</div>
+        <div class="ctrl-val" id="u2-val" style="color:#185FA5">30 m/s</div>
+      </div>
+      <input type="range" id="u2" min="5" max="40" value="30" step="5">
+    </div>
+  </div>
+
+  <button class="launch-btn" id="launch-btn">Launch</button>
+
+  <div class="insight-card" id="insight">Set initial speeds and press <strong>Launch</strong>. Then switch frames to see how relative motion changes.</div>
+
+  <footer>Vertical Relative Motion · Kinematics · Made with Claude</footer>
+</div>
+
+<script>
+const G=10, T_TOTAL=8;
+const shaft=document.getElementById('shaft');
+const sc=shaft.getContext('2d');
+const graph=document.getElementById('graph');
+const gc=graph.getContext('2d');
+const SW=110,SH=270,GW=208,GH=270;
+
+let frame='ground', u1=20, u2=30;
+let t=0, animId=null, running=false, launched=false;
+const DT=0.033;
+const COL1='#BA7517', COL2='#185FA5';
+const V_MAX_FIXED=45;
+const WINDOW=60;
+
+function yPos(u,t2){return u*t2-0.5*G*t2*t2;}
+function yVel(u,t2){return u-G*t2;}
+
+function getFocusY(t2){
+  if(!launched)return 0;
+  if(frame==='b1')return yPos(u1,t2);
+  if(frame==='b2')return yPos(u2,t2);
+  let peak=Math.max(u1*u1,u2*u2)/(2*G);
+  return peak*0.45;
+}
+
+function drawShaft(t2){
+  const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+  sc.clearRect(0,0,SW,SH);
+  sc.fillStyle=dark?'#1a1a1a':'#f8f7f4';
+  sc.fillRect(0,0,SW,SH);
+
+  const PL=26,PR=6,PT=12,PB=24;
+  const gh=SH-PT-PB;
+
+  let focusY=getFocusY(t2);
+  let worldBottom=focusY-WINDOW*0.55;
+  let worldTop=worldBottom+WINDOW;
+
+  function sy(yWorld){return PT+gh-(yWorld-worldBottom)/WINDOW*gh;}
+
+  const lblC=dark?'rgba(255,255,255,0.5)':'rgba(0,0,0,0.5)';
+  const gridC=dark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)';
+
+  sc.strokeStyle=gridC;sc.lineWidth=0.5;sc.setLineDash([2,3]);
+  let step=10;
+  for(let h=Math.floor(worldBottom/step)*step;h<=worldTop+step;h+=step){
+    let yy=sy(h);
+    if(yy<PT-2||yy>PT+gh+2)continue;
+    sc.beginPath();sc.moveTo(PL,yy);sc.lineTo(SW-PR,yy);sc.stroke();
+    sc.fillStyle=lblC;sc.font='bold 9px monospace';sc.textAlign='right';
+    sc.fillText(h,PL-2,yy+3);
+  }
+  sc.setLineDash([]);
+
+  let gY=sy(0);
+  if(gY>=PT-4&&gY<=PT+gh+4){
+    sc.strokeStyle=dark?'rgba(255,255,255,0.45)':'rgba(0,0,0,0.45)';
+    sc.lineWidth=1.5;
+    sc.beginPath();sc.moveTo(PL,gY);sc.lineTo(SW-PR,gY);sc.stroke();
+    sc.fillStyle=lblC;sc.font='8px sans-serif';sc.textAlign='left';
+    sc.fillText('ground',PL+2,gY-3);
+  }
+
+  sc.strokeStyle=dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)';
+  sc.lineWidth=1;
+  sc.beginPath();sc.moveTo(PL,PT);sc.lineTo(PL,PT+gh);sc.stroke();
+
+  sc.save();sc.translate(10,PT+gh/2);sc.rotate(-Math.PI/2);
+  sc.fillStyle=dark?'rgba(255,255,255,0.6)':'rgba(0,0,0,0.6)';
+  sc.font='bold 10px sans-serif';sc.textAlign='center';
+  sc.fillText('height (m)',0,0);sc.restore();
+
+  function drawBall(u,col,label,xOff){
+    let yWorld=launched?yPos(u,t2):0;
+    let py=sy(yWorld);
+    if(py<PT-20||py>PT+gh+20)return;
+    let px=PL+(SW-PL-PR)*0.4+xOff;
+    sc.beginPath();sc.arc(px,py,9,0,Math.PI*2);
+    sc.fillStyle=col;sc.fill();
+    sc.fillStyle='#fff';sc.font='bold 9px monospace';sc.textAlign='center';
+    sc.fillText(label,px,py+3);
+  }
+  drawBall(u1,COL1,'1',-11);
+  drawBall(u2,COL2,'2',11);
+}
+
+function drawGraph(t2){
+  const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+  gc.clearRect(0,0,GW,GH);
+  gc.fillStyle=dark?'#1a1a1a':'#ffffff';
+  gc.fillRect(0,0,GW,GH);
+
+  const PL=34,PR=8,PT=22,PB=28;
+  const gw=GW-PL-PR, gh=GH-PT-PB;
+  const vMax=V_MAX_FIXED;
+
+  function relV(u,t3){
+    let v=yVel(u,t3);
+    let vObs=frame==='b1'?yVel(u1,t3):frame==='b2'?yVel(u2,t3):0;
+    return v-vObs;
+  }
+
+  function cx(t3){return PL+(t3/T_TOTAL)*gw;}
+  function cy(v){return PT+gh/2-(v/vMax)*(gh/2);}
+
+  const lblC=dark?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.55)';
+  const gridC=dark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)';
+
+  gc.strokeStyle=gridC;gc.lineWidth=0.5;gc.setLineDash([2,3]);
+  [-vMax,-vMax/2,0,vMax/2,vMax].forEach(v=>{
+    let y=cy(v);
+    gc.beginPath();gc.moveTo(PL,y);gc.lineTo(GW-PR,y);gc.stroke();
+    gc.fillStyle=lblC;gc.font='bold 9px monospace';gc.textAlign='right';
+    gc.fillText(Math.round(v),PL-3,y+3);
+  });
+  [0,2,4,6,8].forEach(tx=>{
+    let x=cx(tx);
+    gc.beginPath();gc.moveTo(x,PT);gc.lineTo(x,PT+gh);gc.stroke();
+    gc.fillStyle=lblC;gc.font='bold 9px monospace';gc.textAlign='center';
+    gc.fillText(tx+'s',x,GH-5);
+  });
+  gc.setLineDash([]);
+
+  gc.strokeStyle=dark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.35)';
+  gc.lineWidth=0.8;
+  gc.beginPath();gc.moveTo(PL,PT);gc.lineTo(PL,PT+gh);gc.stroke();
+  gc.beginPath();gc.moveTo(PL,PT+gh);gc.lineTo(GW-PR,PT+gh);gc.stroke();
+  gc.strokeStyle=dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.18)';
+  gc.beginPath();gc.moveTo(PL,cy(0));gc.lineTo(GW-PR,cy(0));gc.stroke();
+
+  gc.fillStyle=dark?'rgba(255,255,255,0.65)':'rgba(0,0,0,0.65)';
+  gc.font='bold 10px sans-serif';gc.textAlign='center';
+  gc.fillText('t (s)',PL+gw/2,GH-2);
+  gc.save();gc.translate(10,PT+gh/2);gc.rotate(-Math.PI/2);
+  gc.fillText('v (m/s)',0,0);gc.restore();
+
+  let ttl=frame==='ground'?'Ground frame':frame==='b1'?'Ball 1\'s frame':'Ball 2\'s frame';
+  gc.fillStyle=dark?'rgba(255,255,255,0.42)':'rgba(0,0,0,0.4)';
+  gc.font='bold 9px sans-serif';gc.textAlign='center';
+  gc.fillText(ttl,PL+gw/2,PT-6);
+
+  [u1,u2].forEach((u,i)=>{
+    gc.beginPath();
+    gc.strokeStyle=i===0?'rgba(186,117,23,0.22)':'rgba(24,95,165,0.22)';
+    gc.lineWidth=1.5;gc.setLineDash([4,3]);
+    let started=false;
+    for(let j=0;j<=100;j++){
+      let tt=T_TOTAL*j/100;
+      let v=relV(u,tt);
+      let yy=cy(v);
+      if(yy<PT||yy>PT+gh){started=false;continue;}
+      started?gc.lineTo(cx(tt),yy):gc.moveTo(cx(tt),yy);
+      started=true;
+    }
+    gc.stroke();gc.setLineDash([]);
+  });
+
+  if(!launched)return;
+
+  [u1,u2].forEach((u,i)=>{
+    gc.beginPath();
+    gc.strokeStyle=i===0?COL1:COL2;
+    gc.lineWidth=2.2;
+    let started=false;
+    for(let j=0;j<=100;j++){
+      let tt=T_TOTAL*j/100;
+      if(tt>t2+0.01)break;
+      let v=relV(u,tt);
+      let yy=cy(v);
+      if(yy<PT||yy>PT+gh){started=false;continue;}
+      started?gc.lineTo(cx(tt),yy):gc.moveTo(cx(tt),yy);
+      started=true;
+    }
+    gc.stroke();
+  });
+
+  if(t2>0){
+    let curX=cx(Math.min(t2,T_TOTAL));
+    gc.strokeStyle=dark?'rgba(255,255,255,0.22)':'rgba(0,0,0,0.18)';
+    gc.lineWidth=0.8;gc.setLineDash([2,2]);
+    gc.beginPath();gc.moveTo(curX,PT);gc.lineTo(curX,PT+gh);gc.stroke();
+    gc.setLineDash([]);
+    [u1,u2].forEach((u,i)=>{
+      let v=relV(u,Math.min(t2,T_TOTAL));
+      let py=cy(v);
+      if(py<PT||py>PT+gh)return;
+      gc.beginPath();gc.arc(curX,py,4,0,Math.PI*2);
+      gc.fillStyle=i===0?COL1:COL2;gc.fill();
+    });
+  }
+}
+
+function updateInsight(){
+  let el=document.getElementById('insight');
+  let rv=u2-u1;
+  if(!launched){
+    el.innerHTML=`Set initial speeds and press <strong>Launch</strong>. Then switch frames to see how relative motion changes.`;return;
+  }
+  if(frame==='ground'){
+    el.innerHTML=`In the ground frame, both balls decelerate at <strong>g = 10 m/s²</strong>. Lines are parallel — same slope, gap = <strong>${Math.abs(rv)} m/s</strong>.`;
+  } else if(frame==='b1'){
+    el.innerHTML=`In Ball 1's frame, Ball 1 is <strong>stationary</strong> (flat at 0). Ball 2 moves at constant <strong>${rv>=0?'+':''}${rv} m/s</strong>. Relative acceleration = g &minus; g = <strong>0</strong>.`;
+  } else {
+    el.innerHTML=`In Ball 2's frame, Ball 2 is <strong>stationary</strong> (flat at 0). Ball 1 moves at constant <strong>${-rv>=0?'+':''}${-rv} m/s</strong>. Relative velocity is constant despite both accelerating.`;
+  }
+}
+
+function step(){
+  if(!running)return;
+  t+=DT;
+  if(t>=T_TOTAL){running=false;t=T_TOTAL;}
+  drawShaft(t);drawGraph(t);
+  if(running) animId=requestAnimationFrame(step);
+}
+
+function launch(){
+  if(animId) cancelAnimationFrame(animId);
+  t=0;running=true;launched=true;
+  updateInsight();
+  animId=requestAnimationFrame(step);
+}
+
+document.querySelectorAll('.fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');frame=b.dataset.f;
+    updateInsight();drawShaft(t);drawGraph(t);
+  });
+});
+document.getElementById('u1').addEventListener('input',e=>{
+  u1=parseInt(e.target.value);
+  document.getElementById('u1-val').textContent=u1+' m/s';
+  launched=false;t=0;updateInsight();drawShaft(0);drawGraph(0);
+});
+document.getElementById('u2').addEventListener('input',e=>{
+  u2=parseInt(e.target.value);
+  document.getElementById('u2-val').textContent=u2+' m/s';
+  launched=false;t=0;updateInsight();drawShaft(0);drawGraph(0);
+});
+document.getElementById('launch-btn').addEventListener('click',launch);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{drawShaft(t);drawGraph(t);});
+
+drawShaft(0);drawGraph(0);
+</script>
+</body>
+</html>
