@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Robot Navigator</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+    html, body { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%; background:#1a1a2e; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    #vp { position:relative; width:100vw; height:100vh; max-width:calc(100vh * 0.75); max-height:calc(100vw * 1.333333); background:#f5f0e8; overflow:hidden; font-family:'Georgia', serif; display:flex; flex-direction:column; }
+
+    /* ── HEADER ── */
+    .header { background:#1a1a2e; padding:3% 5%; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+    .header-title { color:#f5c518; font-size:4.5vw; letter-spacing:2px; text-transform:uppercase; font-weight:bold; }
+    .step-pill { color:#a0aec0; font-size:4vw; letter-spacing:1px; }
+    .step-pill span { color:#fff; font-weight:bold; }
+
+    /* ── SCORE BAR ── */
+    .score-bar { background:#fff; border-bottom:2px solid #e2d9cc; padding:2.5% 5%; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+    .score-item { display:flex; align-items:center; gap:6px; }
+    .score-item .s-label { font-size:3.2vw; color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600; }
+    .score-item .s-val { font-size:6vw; font-weight:bold; color:#1a1a2e; }
+    .score-item .s-icon { font-size:5vw; }
+
+    /* ── CANVAS AREA ── */
+    /* flex:1 but capped so it never squeezes the question area off screen */
+    .canvas-wrap { flex:1; min-height:0; max-height:48%; display:flex; align-items:center; justify-content:center; padding:2%; background:#f5f0e8; }
+    #pathCanvas { border-radius:8px; border:1.5px solid #d4c9b8; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,0.08); }
+
+    /* ── QUESTION AREA ── fixed height budget so it's always visible ── */
+    .question-area { flex-shrink:0; padding:2% 4% 3%; background:#f5f0e8; min-height:38%; }
+    .question-label { font-size:4vw; color:#1a1a2e; text-align:center; margin-bottom:2.5%; font-weight:700; }
+
+    .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:3%; }
+    .options-grid.single { grid-template-columns:1fr; }
+
+    .option-btn {
+      background:#fff;
+      border:2.5px solid #c8bfb0;
+      border-radius:12px;
+      padding:4% 3%;
+      cursor:pointer;
+      text-align:center;
+      transition:transform 0.12s, border-color 0.12s, background 0.12s;
+      box-shadow:0 4px 10px rgba(0,0,0,0.13);
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+    }
+    .option-btn:active:not(:disabled) { transform:scale(0.96); }
+    /* sub-label (direction / GP series) */
+    .option-btn .opt-dir { font-size:3.2vw; color:#444; letter-spacing:0.5px; font-weight:500; }
+    /* main value */
+    .option-btn .opt-val { font-size:4.5vw; color:#1a1a2e; font-weight:bold; }
+
+    /* Highlight states */
+    .option-btn.correct  { background:#d4f5d4; border-color:#2db82d; box-shadow:0 3px 12px rgba(45,184,45,0.25); }
+    .option-btn.correct .opt-val { color:#1a7a1a; }
+    .option-btn.correct .opt-dir { color:#1a7a1a; }
+    .option-btn.wrong    { background:#fde8e8; border-color:#e53e3e; }
+    .option-btn.wrong .opt-val { color:#c53030; }
+    .option-btn.wrong .opt-dir { color:#c53030; }
+    .option-btn.disabled-dim { opacity:0.35; }
+
+    /* ── FEEDBACK BADGE (small corner pill) ── */
+    #feedback { position:absolute; top:3%; right:3%; display:flex; align-items:center; gap:5px; background:#1a1a2e; border-radius:50px; padding:1.8% 4%; opacity:0; pointer-events:none; transition:opacity 0.15s; z-index:20; border:1.5px solid rgba(255,255,255,0.12); }
+    #feedback.show { opacity:1; }
+    #feedback .fb-emoji { font-size:5vw; }
+    #feedback .fb-text  { font-size:4vw; color:#fff; font-weight:bold; }
+    #feedback .fb-sub   { font-size:3.5vw; color:#f5c518; font-weight:600; }
+
+    /* ── ZOOM INSET ── */
+    #zoomCanvas { position:absolute; top:3%; left:3%; border-radius:8px; border:2px solid #1a1a2e; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.2); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:10; }
+    #zoomCanvas.visible { opacity:1; }
+    #zoomLabel { position:absolute; top:3%; left:3%; font-size:2.8vw; color:#fff; background:#1a1a2e; padding:0.5% 2%; border-radius:4px 4px 0 0; opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:11; transform:translateY(-100%); }
+    #zoomLabel.visible { opacity:1; }
+    #intro-screen { position:absolute; inset:0; background:#f5f0e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4%; padding:8%; z-index:30; }
+    #intro-screen.hidden { display:none; }
+    .intro-robot { font-size:16vw; animation:float 2.5s ease-in-out infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .intro-title { font-size:7vw; color:#1a1a2e; font-weight:bold; text-align:center; letter-spacing:1px; }
+    .intro-card { background:#fff; border-radius:14px; padding:5% 6%; width:100%; border:1.5px solid #e2d9cc; box-shadow:0 2px 10px rgba(0,0,0,0.07); }
+    .intro-card p { color:#1a1a2e; font-size:4vw; line-height:1.8; text-align:center; }
+    .intro-card b { color:#1a1a2e; }
+    .start-btn { background:#f5c518; border:none; border-radius:50px; padding:4% 14%; font-size:5vw; font-weight:bold; color:#1a1a2e; letter-spacing:1px; cursor:pointer; font-family:inherit; box-shadow:0 4px 15px rgba(245,197,24,0.4); transition:transform 0.12s; text-transform:uppercase; }
+    .start-btn:active { transform:scale(0.96); }
+
+    /* ── RESULT SCREEN ── */
+    #result-screen { position:absolute; inset:0; background:#f5f0e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4%; padding:8%; z-index:30; }
+    #result-screen.hidden { display:none; }
+    .result-title { font-size:7vw; color:#1a1a2e; font-weight:bold; letter-spacing:1px; text-align:center; }
+    .score-circle { width:30vw; height:30vw; border-radius:50%; background:#1a1a2e; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(26,26,46,0.3); }
+    .score-circle .big { font-size:10vw; color:#f5c518; font-weight:bold; }
+    .score-circle .sm  { font-size:3.5vw; color:#a0aec0; }
+    .coins-display { font-size:5.5vw; color:#1a1a2e; }
+    .answer-card { background:#fff; border-radius:14px; padding:5% 6%; width:100%; border:1.5px solid #e2d9cc; box-shadow:0 2px 10px rgba(0,0,0,0.07); text-align:center; }
+    .answer-card .ac-label { font-size:3.5vw; color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .answer-card .ac-val { font-size:4.5vw; color:#1a1a2e; font-weight:bold; line-height:1.6; white-space:pre-line; }
+    .retry-btn { background:#fff; border:2px solid #1a1a2e; border-radius:50px; padding:3.5% 12%; font-size:4.5vw; font-weight:bold; color:#1a1a2e; letter-spacing:1px; cursor:pointer; font-family:inherit; text-transform:uppercase; transition:background 0.12s; }
+    .retry-btn:active { background:#e2d9cc; }
+  </style>
+</head>
+<body>
+<div id="vp">
+
+  <!-- INTRO -->
+  <div id="intro-screen">
+    <div class="intro-robot">🤖</div>
+    <div class="intro-title">Robot Navigator</div>
+    <div class="intro-card">
+      <p>The robot starts at origin, moves <b>10m East</b>, turns <b>Left</b> each time, covering <b>half the previous distance</b>. It stops when the next step &lt; 0.05m.<br><br>Predict each move before it's revealed!</p>
+    </div>
+    <button class="start-btn" onclick="startGame()">Start →</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="header">
+    <div class="header-title">Robot Navigator</div>
+    <div class="step-pill">Step <span id="stepNum">1</span> / <span id="stepTotal">9</span></div>
+  </div>
+  <div class="score-bar">
+    <div class="score-item"><span class="s-icon">⭐</span><span class="s-label">Score</span><span class="s-val" id="scoreVal">0</span></div>
+    <div class="score-item"><span class="s-icon">🪙</span><span class="s-label">Coins</span><span class="s-val" id="coinsVal">0</span></div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="pathCanvas"></canvas>
+    <canvas id="zoomCanvas"></canvas>
+    <div id="zoomLabel">🔍 zoom</div>
+    <div id="feedback">
+      <span class="fb-emoji" id="fbEmoji"></span>
+      <span class="fb-text" id="fbText"></span>
+      <span class="fb-sub" id="fbSub"></span>
+    </div>
+  </div>
+  <div class="question-area">
+    <div class="question-label" id="questionLabel">Where does the robot move next?</div>
+    <div class="options-grid" id="optionsGrid"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-screen" class="hidden">
+    <div class="intro-robot">🏁</div>
+    <div class="result-title">Mission Complete!</div>
+    <div class="score-circle"><span class="big" id="finalScore">0</span><span class="sm">/100</span></div>
+    <div class="coins-display">🪙 <span id="finalCoins">0</span> coins earned</div>
+    <div class="answer-card">
+      <div class="ac-label">Robot's Final Position (from start)</div>
+      <div class="ac-val" id="finalPosText"></div>
+    </div>
+    <button class="retry-btn" onclick="retryGame()">↺ Retry</button>
+  </div>
+
+</div>
+<script>
+  // ── FLUTTER BRIDGE ──
+  window._gameResult = { status:"pending", score:0, coins:0, retries:0 };
+  function endGame(s,c,r){ window._gameResult={status:"completed",score:s,coins:c,retries:r}; sendResult(); }
+  function sendResult(){ const p=JSON.stringify(window._gameResult); if(window.StoryWiseBridge) window.StoryWiseBridge.postMessage(p); else console.log("Bridge:",p); }
+
+  // ── BUILD STEPS ──
+  // Directions cycling E→N→W→S (turn left each time)
+  const DIRS=[{d:'E',dx:1,dy:0},{d:'N',dx:0,dy:1},{d:'W',dx:-1,dy:0},{d:'S',dx:0,dy:-1}];
+  function buildSteps(){
+    const steps=[]; let dist=10, di=0, x=0, y=0;
+    while(true){
+      const dir=DIRS[di]; const nx=x+dir.dx*dist; const ny=y+dir.dy*dist;
+      steps.push({dist,dir:dir.d,fromX:x,fromY:y,toX:nx,toY:ny});
+      x=nx; y=ny; dist/=2; di=(di+1)%4;
+      if(dist<0.05) break;
+    }
+    return steps;
+  }
+  const STEPS=buildSteps();
+  const TOTAL_Q=STEPS.length+1;
+  const MOVE_PTS=Math.floor(80/STEPS.length);
+  const FINAL_PTS=20;
+
+  let score=0,coins=0,retries=0,currentQ=0,revealed=[];
+
+  // ── CANVAS ──
+  const canvas=document.getElementById('pathCanvas');
+  const ctx=canvas.getContext('2d');
+
+  function sizeCanvas(){
+    const wrap=canvas.parentElement;
+    const available=Math.min(wrap.clientWidth*0.95, wrap.clientHeight*0.95);
+    canvas.width=available; canvas.height=available;
+    sizeZoom();
+  }
+
+  // ── UNIFORM SCALE: same px-per-meter on both axes ──
+  function getTransform(canv){
+    const allX=STEPS.map(s=>s.toX).concat([0]);
+    const allY=STEPS.map(s=>s.toY).concat([0]);
+    const minX=Math.min(...allX), maxX=Math.max(...allX);
+    const minY=Math.min(...allY), maxY=Math.max(...allY);
+    const pad=0.12;
+    const innerW=canv.width*(1-2*pad);
+    const innerH=canv.height*(1-2*pad);
+    const scaleX=innerW/(maxX-minX||1);
+    const scaleY=innerH/(maxY-minY||1);
+    const scale=Math.min(scaleX,scaleY);
+    const drawW=(maxX-minX)*scale;
+    const drawH=(maxY-minY)*scale;
+    const offX=(canv.width-drawW)/2 - minX*scale;
+    const offY=(canv.height+drawH)/2 + minY*scale;
+    return {scale, offX, offY};
+  }
+
+  // Zoom transform: centres on robot cluster with fixed zoom radius
+  function getZoomTransform(canv, cx, cy, radius){
+    const scale = (canv.width*0.4) / radius;
+    const offX = canv.width/2  - cx*scale;
+    const offY = canv.height/2 + cy*scale;
+    return {scale, offX, offY};
+  }
+
+  function w2c(wx,wy,T){ return {px:T.offX+wx*T.scale, py:T.offY-wy*T.scale}; }
+
+  // ── DRAW ALL REVEALED SEGMENTS onto a given canvas/context with a given transform ──
+  function renderSegments(canv, c, T, upToProgress, animIdx){
+    const S = canv.width;
+    c.clearRect(0,0,canv.width,canv.height);
+
+    // Grid
+    c.strokeStyle='rgba(0,0,0,0.06)'; c.lineWidth=0.5;
+    for(let gx=-2;gx<=12;gx++){
+      const a=w2c(gx,-3,T), b=w2c(gx,8,T);
+      c.beginPath(); c.moveTo(a.px,a.py); c.lineTo(b.px,b.py); c.stroke();
+    }
+    for(let gy=-3;gy<=8;gy++){
+      const a=w2c(-2,gy,T), b=w2c(12,gy,T);
+      c.beginPath(); c.moveTo(a.px,a.py); c.lineTo(b.px,b.py); c.stroke();
+    }
+
+    // Axis labels
+    c.fillStyle='rgba(0,0,0,0.25)'; c.font=`${S*0.028}px Georgia`; c.textAlign='center';
+    for(let gx=0;gx<=10;gx+=2){ const p=w2c(gx,0,T); c.fillText(gx, p.px, p.py+S*0.045); }
+    c.textAlign='right';
+    for(let gy=0;gy<=6;gy+=2){ const p=w2c(0,gy,T); c.fillText(gy, p.px-S*0.015, p.py+S*0.012); }
+
+    // Segments
+    for(let i=0;i<revealed.length;i++){
+      const step=STEPS[i];
+      const from=w2c(step.fromX,step.fromY,T);
+      const to=w2c(step.toX,step.toY,T);
+
+      // For the currently-animating segment, interpolate endpoint
+      let ex=to.px, ey=to.py;
+      if(i===animIdx && upToProgress<1){
+        ex = from.px + (to.px-from.px)*upToProgress;
+        ey = from.py + (to.py-from.py)*upToProgress;
+      }
+
+      c.beginPath(); c.moveTo(from.px,from.py); c.lineTo(ex,ey);
+      c.strokeStyle='#1a1a2e'; c.lineWidth=S*0.013; c.lineCap='round';
+      c.setLineDash([S*0.018, S*0.022]); c.stroke(); c.setLineDash([]);
+
+      // Label only after segment is fully drawn
+      if(i!==animIdx || upToProgress>=1){
+        const mx=(from.px+to.px)/2, my=(from.py+to.py)/2;
+        const angle=Math.atan2(to.py-from.py, to.px-from.px);
+        const perpAngle=angle+Math.PI/2;
+        const offset=S*0.055;
+        const lx=mx+Math.cos(perpAngle)*offset;
+        const ly=my+Math.sin(perpAngle)*offset;
+        const label=step.dist>=1?step.dist.toFixed(2)+'m':step.dist.toFixed(3)+'m';
+        c.font=`bold ${S*0.034}px Georgia`; c.textAlign='center';
+        const tw=c.measureText(label).width, th=S*0.034, pd=S*0.018;
+        c.fillStyle='#f5c518';
+        c.beginPath(); c.ellipse(lx,ly,tw/2+pd,th*0.6+pd*0.5,0,0,Math.PI*2); c.fill();
+        c.fillStyle='#1a1a2e'; c.fillText(label, lx, ly+th*0.35);
+      }
+    }
+
+    // Origin dot
+    const o=w2c(0,0,T);
+    c.beginPath(); c.arc(o.px,o.py,S*0.028,0,Math.PI*2);
+    c.fillStyle='#1a1a2e'; c.fill();
+    c.fillStyle='#fff'; c.font=`bold ${S*0.03}px Georgia`; c.textAlign='center';
+    c.fillText('S',o.px,o.py+S*0.011);
+
+    // Robot emoji at current tip
+    if(revealed.length>0){
+      const last=STEPS[revealed.length-1];
+      // During animation show robot at interpolated position
+      let rx=last.toX, ry=last.toY;
+      if(animIdx===revealed.length-1 && upToProgress<1){
+        const from=STEPS[animIdx];
+        rx = from.fromX + (last.toX-from.fromX)*upToProgress;
+        ry = from.fromY + (last.toY-from.fromY)*upToProgress;
+      }
+      const rp=w2c(rx,ry,T);
+      c.font=`${S*0.055}px serif`; c.textAlign='center';
+      c.fillText('🤖',rp.px,rp.py+S*0.02);
+    }
+
+    // Compass
+    const cx2=S*0.88, cy2=S*0.1, cr=S*0.055;
+    c.fillStyle='rgba(26,26,46,0.12)';
+    c.beginPath(); c.arc(cx2,cy2,cr,0,Math.PI*2); c.fill();
+    c.font=`bold ${S*0.028}px Georgia`; c.textAlign='center'; c.fillStyle='#1a1a2e';
+    c.fillText('N',cx2,cy2-cr*0.5); c.fillText('S',cx2,cy2+cr*0.85);
+    c.fillText('E',cx2+cr*0.72,cy2+S*0.01); c.fillText('W',cx2-cr*0.72,cy2+S*0.01);
+  }
+
+  // ── MAIN DRAW (static, no animation) ──
+  function drawPath(){
+    const T=getTransform(canvas);
+    renderSegments(canvas, ctx, T, 1, -1);
+    updateZoom();
+  }
+
+  // ── ZOOM INSET ──
+  const zoomCanvas=document.getElementById('zoomCanvas');
+  const zctx=zoomCanvas.getContext('2d');
+  const ZOOM_THRESHOLD=4; // show zoom after this many steps revealed
+
+  function sizeZoom(){
+    const S=canvas.width;
+    const zs=Math.round(S*0.64);
+    zoomCanvas.width=zs; zoomCanvas.height=zs;
+    // Position: top-left of canvas, offset slightly
+    zoomCanvas.style.width=zs+'px'; zoomCanvas.style.height=zs+'px';
+  }
+
+  function updateZoom(){
+    if(revealed.length<ZOOM_THRESHOLD){ 
+      zoomCanvas.classList.remove('visible');
+      document.getElementById('zoomLabel').classList.remove('visible');
+      return;
+    }
+    zoomCanvas.classList.add('visible');
+    document.getElementById('zoomLabel').classList.add('visible');
+
+    // Centre zoom on the last robot position
+    const last=STEPS[revealed.length-1];
+    const cx=last.toX, cy=last.toY;
+    // Zoom radius = 2× the current segment distance
+    const radius=Math.max(STEPS[revealed.length-1].dist*2.5, 0.5);
+    const ZT=getZoomTransform(zoomCanvas, cx, cy, radius);
+    renderSegments(zoomCanvas, zctx, ZT, 1, -1);
+
+    // Inset border
+    zctx.strokeStyle='#1a1a2e'; zctx.lineWidth=3;
+    zctx.strokeRect(1,1,zoomCanvas.width-2,zoomCanvas.height-2);
+  }
+
+  // ── ANIMATED SEGMENT DRAWING ──
+  const ANIM_DURATION=550; // ms per segment
+  let animating=false;
+
+  function animateSegment(stepIdx, onDone){
+    animating=true;
+    const start=performance.now();
+    const T=getTransform(canvas);
+
+    function frame(now){
+      const elapsed=now-start;
+      const progress=Math.min(elapsed/ANIM_DURATION, 1);
+      // ease-out
+      const eased=1-Math.pow(1-progress,2);
+      renderSegments(canvas, ctx, T, eased, stepIdx);
+      updateZoom();
+      if(progress<1){ requestAnimationFrame(frame); }
+      else { animating=false; onDone && onDone(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ── OPTIONS ──
+  const DIR_NAMES={E:'East',N:'North',W:'West',S:'South'};
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+  function generateMoveOptions(idx){
+    const c=STEPS[idx];
+    const wrongDir=DIRS[(DIRS.findIndex(d=>d.d===c.dir)+1)%4].d;
+    const wrongDir2=DIRS[(DIRS.findIndex(d=>d.d===c.dir)+2)%4].d;
+    return shuffle([
+      {dir:c.dir,   dist:c.dist,   correct:true},
+      {dir:wrongDir, dist:c.dist,   correct:false},
+      {dir:c.dir,   dist:c.dist*2, correct:false},
+    ]);
+  }
+
+  // X-axis movements: E10, W-2.5, E0.625, W-0.15625 → GP a=10, r=−1/4
+  // Label uses HTML so we render with innerHTML
+  function generateGPOptions(){
+    return shuffle([
+      { label:'a = 10,  r = −¼',  sub:'GP: 10, −2.5, 0.625…', correct:true  },
+      { label:'a = 10,  r = ½',   sub:'GP: 10, 5, 2.5…',       correct:false },
+      { label:'a = 10,  r = −½',  sub:'GP: 10, −5, 2.5…',      correct:false },
+      { label:'a = 5,   r = −¼',  sub:'GP: 5, −1.25, 0.3125…', correct:false },
+    ]);
+  }
+
+  function renderQuestion(){
+    document.getElementById('stepNum').textContent=currentQ+1;
+    document.getElementById('stepTotal').textContent=TOTAL_Q;
+    const grid=document.getElementById('optionsGrid');
+    grid.innerHTML='';
+
+    if(currentQ<STEPS.length){
+      document.getElementById('questionLabel').textContent=
+        currentQ===0?'Where does the robot move first?':'Where does the robot move next?';
+      grid.className='options-grid';
+      generateMoveOptions(currentQ).forEach((opt,i,arr)=>{
+        const btn=document.createElement('button');
+        btn.className='option-btn';
+        btn.innerHTML=`<span class="opt-dir">${DIR_NAMES[opt.dir]}</span><span class="opt-val">${opt.dist>=1?opt.dist.toFixed(2):opt.dist.toFixed(3)} m</span>`;
+        btn.onclick=()=>handleMove(opt,btn,arr);
+        grid.appendChild(btn);
+      });
+    } else {
+      document.getElementById('questionLabel').textContent="Which GP defines the robot's X-axis movements?";
+      grid.className='options-grid';
+      generateGPOptions().forEach((opt,i,arr)=>{
+        const btn=document.createElement('button');
+        btn.className='option-btn';
+        btn.innerHTML=`<span class="opt-val">${opt.label}</span><span class="opt-dir">${opt.sub}</span>`;
+        btn.onclick=()=>handleFinal(opt,btn,arr);
+        grid.appendChild(btn);
+      });
+    }
+  }
+
+  function handleMove(opt,btn,allOpts){
+    document.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+    const stepIdx=currentQ;
+    if(opt.correct){
+      btn.classList.add('correct');
+      score=Math.min(100,score+MOVE_PTS); coins+=1;
+      updateHUD();
+      showFeedback('✅','Correct!',`+${MOVE_PTS} pts`);
+    } else {
+      btn.classList.add('wrong');
+      document.querySelectorAll('.option-btn').forEach((b,i)=>{
+        if(allOpts[i]&&allOpts[i].correct) b.classList.add('correct');
+        else if(b!==btn) b.classList.add('disabled-dim');
+      });
+      showFeedback('❌','Not quite!','');
+    }
+    revealed.push(STEPS[stepIdx]);
+    // Animate the new segment, then advance question after animation completes
+    animateSegment(stepIdx, ()=>{
+      setTimeout(()=>{ hideFeedback(); currentQ++; if(currentQ<TOTAL_Q) renderQuestion(); }, 400);
+    });
+  }
+
+  function handleFinal(opt,btn,allOpts){
+    document.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+    if(opt.correct){
+      btn.classList.add('correct');
+      score=Math.min(100,score+FINAL_PTS); coins+=3;
+      updateHUD();
+      showFeedback('🎯','Spot On!',`+${FINAL_PTS} pts`);
+    } else {
+      btn.classList.add('wrong');
+      document.querySelectorAll('.option-btn').forEach((b,i)=>{
+        if(allOpts[i]&&allOpts[i].correct) b.classList.add('correct');
+        else if(b!==btn) b.classList.add('disabled-dim');
+      });
+      showFeedback('❌','Not quite!','');
+    }
+    setTimeout(()=>{ hideFeedback(); showResult(); },1800);
+  }
+
+  function showFeedback(e,t,s){
+    document.getElementById('fbEmoji').textContent=e;
+    document.getElementById('fbText').textContent=t;
+    document.getElementById('fbSub').textContent=s;
+    document.getElementById('feedback').classList.add('show');
+  }
+  function hideFeedback(){ document.getElementById('feedback').classList.remove('show'); }
+  function updateHUD(){ document.getElementById('scoreVal').textContent=score; document.getElementById('coinsVal').textContent=coins; }
+
+  function showResult(){
+    const last=STEPS[STEPS.length-1];
+    document.getElementById('finalScore').textContent=score;
+    document.getElementById('finalCoins').textContent=coins;
+    document.getElementById('finalPosText').textContent=`X-axis GP: a = 10,  r = −¼\nFinal position ≈ ${last.toX.toFixed(2)}m E,  ${last.toY.toFixed(2)}m N`;
+    document.getElementById('result-screen').classList.remove('hidden');
+    endGame(score,coins,retries);
+  }
+
+  function startGame(){
+    score=0; coins=0; currentQ=0; revealed=[];
+    updateHUD(); sizeCanvas(); drawPath(); renderQuestion();
+    document.getElementById('intro-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.add('hidden');
+  }
+
+  function retryGame(){
+    retries++;
+    document.getElementById('result-screen').classList.add('hidden');
+    startGame();
+  }
+
+  window.addEventListener('resize',()=>{ sizeCanvas(); drawPath(); });
+</script>
+</body>
+</html>
