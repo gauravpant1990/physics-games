@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Robot Navigator</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+    html, body { position:fixed; inset:0; width:100%; height:100%; background:#1a1a2e; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+
+    /* #vp is the 3:4 container — all sizing is relative to --vpw set by JS */
+    #vp {
+      position:relative;
+      width:100vw; height:100vh;
+      max-width:calc(100vh * 0.75);
+      max-height:calc(100vw * 1.333333);
+      background:#f5f0e8;
+      overflow:hidden;
+      font-family:'Georgia', serif;
+      display:flex; flex-direction:column;
+      /* --vpw injected by JS after mount */
+    }
+
+    /* ── HEADER  (shrink:0, height ~9% of vp) ── */
+    .header { background:#1a1a2e; padding:2.5% 5%; display:flex; justify-content:space-between; align-items:center; flex:0 0 auto; }
+    .header-title { color:#f5c518; font-size:calc(var(--vpw)*0.045); letter-spacing:2px; text-transform:uppercase; font-weight:bold; }
+    .step-pill     { color:#a0aec0; font-size:calc(var(--vpw)*0.038); }
+    .step-pill span { color:#fff; font-weight:bold; }
+
+    /* ── SCORE BAR (shrink:0, height ~10%) ── */
+    .score-bar { background:#fff; border-bottom:2px solid #e2d9cc; padding:2% 5%; display:flex; justify-content:space-between; align-items:center; flex:0 0 auto; }
+    .score-item { display:flex; align-items:center; gap:5px; }
+    .score-item .s-label { font-size:calc(var(--vpw)*0.030); color:#555; text-transform:uppercase; letter-spacing:1px; font-weight:600; }
+    .score-item .s-val   { font-size:calc(var(--vpw)*0.058); font-weight:bold; color:#1a1a2e; }
+    .score-item .s-icon  { font-size:calc(var(--vpw)*0.048); }
+
+    /* ── CANVAS AREA (flex:1 — takes whatever is left between bars and questions) ── */
+    .canvas-wrap { flex:1 1 0; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; padding:1.5%; background:#f5f0e8; overflow:hidden; }
+    #pathCanvas  { border-radius:8px; border:1.5px solid #d4c9b8; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,0.08); display:block; }
+
+    /* ── QUESTION AREA (shrink:0, fixed at 36% of vp height) ── */
+    .question-area { flex:0 0 36%; overflow:hidden; padding:1.5% 4% 2%; background:#f5f0e8; display:flex; flex-direction:column; }
+    .question-label { font-size:calc(var(--vpw)*0.040); color:#1a1a2e; text-align:center; margin-bottom:2%; font-weight:700; flex-shrink:0; }
+
+    .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:2.5%; flex:1 1 0; min-height:0; }
+    .options-grid.single { grid-template-columns:1fr; }
+
+    .option-btn {
+      background:#fff; border:2.5px solid #c8bfb0; border-radius:12px;
+      padding:0 3%; cursor:pointer; text-align:center;
+      transition:transform 0.12s, border-color 0.12s, background 0.12s;
+      box-shadow:0 4px 10px rgba(0,0,0,0.13);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+      overflow:hidden;
+    }
+    .option-btn:active:not(:disabled) { transform:scale(0.96); }
+    .option-btn .opt-dir { font-size:calc(var(--vpw)*0.030); color:#444; letter-spacing:0.5px; font-weight:500; }
+    .option-btn .opt-val { font-size:calc(var(--vpw)*0.042); color:#1a1a2e; font-weight:bold; line-height:1.2; }
+
+    .option-btn.correct              { background:#d4f5d4; border-color:#2db82d; }
+    .option-btn.correct .opt-val,
+    .option-btn.correct .opt-dir     { color:#1a7a1a; }
+    .option-btn.wrong                { background:#fde8e8; border-color:#e53e3e; }
+    .option-btn.wrong .opt-val,
+    .option-btn.wrong .opt-dir       { color:#c53030; }
+    .option-btn.disabled-dim         { opacity:0.35; }
+
+    /* ── FEEDBACK BADGE (small pill, top-right of canvas) ── */
+    #feedback { position:absolute; top:4%; right:3%; display:flex; align-items:center; gap:4px;
+      background:#1a1a2e; border-radius:50px; padding:1.5% 3.5%;
+      opacity:0; pointer-events:none; transition:opacity 0.15s; z-index:20;
+      border:1.5px solid rgba(255,255,255,0.15); }
+    #feedback.show { opacity:1; }
+    #feedback .fb-emoji { font-size:calc(var(--vpw)*0.048); }
+    #feedback .fb-text  { font-size:calc(var(--vpw)*0.038); color:#fff; font-weight:bold; }
+    #feedback .fb-sub   { font-size:calc(var(--vpw)*0.032); color:#f5c518; font-weight:600; }
+
+
+    /* ── INTRO SCREEN ── */
+    #intro-screen { position:absolute; inset:0; background:#f5f0e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3%; padding:7%; z-index:30; }
+    #intro-screen.hidden { display:none; }
+    .intro-robot  { font-size:calc(var(--vpw)*0.18); animation:float 2.5s ease-in-out infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .intro-title  { font-size:calc(var(--vpw)*0.072); color:#1a1a2e; font-weight:bold; text-align:center; }
+    .intro-card   { background:#fff; border-radius:14px; padding:4% 5%; width:100%; border:1.5px solid #e2d9cc; box-shadow:0 2px 10px rgba(0,0,0,0.07); }
+    .intro-card p { color:#1a1a2e; font-size:calc(var(--vpw)*0.038); line-height:1.7; text-align:center; }
+    .intro-card b { color:#1a1a2e; }
+    .start-btn    { background:#f5c518; border:none; border-radius:50px; padding:3.5% 12%;
+      font-size:calc(var(--vpw)*0.050); font-weight:bold; color:#1a1a2e; letter-spacing:1px;
+      cursor:pointer; font-family:inherit; box-shadow:0 4px 15px rgba(245,197,24,0.4);
+      transition:transform 0.12s; text-transform:uppercase; }
+    .start-btn:active { transform:scale(0.96); }
+
+    /* ── RESULT SCREEN ── */
+    #result-screen { position:absolute; inset:0; background:#f5f0e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3%; padding:7%; z-index:30; overflow:hidden; }
+    #result-screen.hidden { display:none; }
+    .result-title    { font-size:calc(var(--vpw)*0.068); color:#1a1a2e; font-weight:bold; text-align:center; }
+    .score-circle    { width:calc(var(--vpw)*0.32); height:calc(var(--vpw)*0.32); border-radius:50%;
+      background:#1a1a2e; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      box-shadow:0 4px 20px rgba(26,26,46,0.3); flex-shrink:0; }
+    .score-circle .big { font-size:calc(var(--vpw)*0.10); color:#f5c518; font-weight:bold; }
+    .score-circle .sm  { font-size:calc(var(--vpw)*0.032); color:#a0aec0; }
+    .coins-display   { font-size:calc(var(--vpw)*0.052); color:#1a1a2e; }
+    .answer-card     { background:#fff; border-radius:14px; padding:4% 5%; width:100%; border:1.5px solid #e2d9cc; box-shadow:0 2px 10px rgba(0,0,0,0.07); text-align:center; flex-shrink:0; }
+    .answer-card .ac-label { font-size:calc(var(--vpw)*0.032); color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .answer-card .ac-val   { font-size:calc(var(--vpw)*0.042); color:#1a1a2e; font-weight:bold; line-height:1.6; white-space:pre-line; }
+    .retry-btn { background:#fff; border:2px solid #1a1a2e; border-radius:50px; padding:3% 10%;
+      font-size:calc(var(--vpw)*0.044); font-weight:bold; color:#1a1a2e; letter-spacing:1px;
+      cursor:pointer; font-family:inherit; text-transform:uppercase; transition:background 0.12s; flex-shrink:0; }
+    .retry-btn:active { background:#e2d9cc; }
+  </style>
+</head>
+<body>
+<div id="vp">
+
+  <!-- INTRO -->
+  <div id="intro-screen">
+    <div class="intro-robot">🤖</div>
+    <div class="intro-title">Robot Navigator</div>
+    <div class="intro-card">
+      <p>The robot starts at origin, moves <b>10m East</b>, turns <b>Left</b> each time, covering <b>half the previous distance</b>. It stops when next step &lt; 0.05m.<br><br>Predict each move before it's revealed!</p>
+    </div>
+    <button class="start-btn" onclick="startGame()">Start →</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="header">
+    <div class="header-title">Robot Navigator</div>
+    <div class="step-pill">Step <span id="stepNum">1</span> / <span id="stepTotal">9</span></div>
+  </div>
+  <div class="score-bar">
+    <div class="score-item"><span class="s-icon">⭐</span><span class="s-label">Score</span><span class="s-val" id="scoreVal">0</span></div>
+    <div class="score-item"><span class="s-icon">🪙</span><span class="s-label">Coins</span><span class="s-val" id="coinsVal">0</span></div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="pathCanvas"></canvas>
+    <div id="feedback">
+      <span class="fb-emoji" id="fbEmoji"></span>
+      <span class="fb-text" id="fbText"></span>
+      <span class="fb-sub" id="fbSub"></span>
+    </div>
+  </div>
+  <div class="question-area">
+    <div class="question-label" id="questionLabel">Where does the robot move next?</div>
+    <div class="options-grid" id="optionsGrid"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-screen" class="hidden">
+    <div class="intro-robot">🏁</div>
+    <div class="result-title">Mission Complete!</div>
+    <div class="score-circle"><span class="big" id="finalScore">0</span><span class="sm">/100</span></div>
+    <div class="coins-display">🪙 <span id="finalCoins">0</span> coins earned</div>
+    <div class="answer-card">
+      <div class="ac-label">Answer</div>
+      <div class="ac-val" id="finalPosText"></div>
+    </div>
+    <button class="retry-btn" onclick="retryGame()">↺ Retry</button>
+  </div>
+
+</div>
+<script>
+  // ── FLUTTER BRIDGE ──
+  window._gameResult = { status:"pending", score:0, coins:0, retries:0 };
+  function endGame(s,c,r){ window._gameResult={status:"completed",score:s,coins:c,retries:r}; sendResult(); }
+  function sendResult(){ const p=JSON.stringify(window._gameResult); if(window.StoryWiseBridge) window.StoryWiseBridge.postMessage(p); else console.log("Bridge:",p); }
+
+  // ── SET --vpw CSS VARIABLE (width of #vp in px, used for all font/size scaling) ──
+  const vp=document.getElementById('vp');
+  function setVpw(){ vp.style.setProperty('--vpw', vp.clientWidth+'px'); }
+
+  // ── BUILD STEPS ──
+  const DIRS=[{d:'E',dx:1,dy:0},{d:'N',dx:0,dy:1},{d:'W',dx:-1,dy:0},{d:'S',dx:0,dy:-1}];
+  function buildSteps(){
+    const steps=[]; let dist=10, di=0, x=0, y=0;
+    while(true){
+      const dir=DIRS[di]; const nx=x+dir.dx*dist; const ny=y+dir.dy*dist;
+      steps.push({dist,dir:dir.d,fromX:x,fromY:y,toX:nx,toY:ny});
+      x=nx; y=ny; dist/=2; di=(di+1)%4;
+      if(dist<0.05) break;
+    }
+    return steps;
+  }
+  const STEPS=buildSteps();
+  const TOTAL_Q=STEPS.length+1;
+  const MOVE_PTS=Math.floor(80/STEPS.length);
+  const FINAL_PTS=20;
+
+  let score=0, coins=0, retries=0, currentQ=0, revealed=[];
+
+  // ── CANVAS ──
+  const canvas=document.getElementById('pathCanvas');
+  const ctx=canvas.getContext('2d');
+
+  function sizeCanvas(){
+    setVpw();
+    const wrap=canvas.parentElement;
+    const s=Math.min(wrap.clientWidth*0.96, wrap.clientHeight*0.96);
+    canvas.width=s; canvas.height=s;
+  }
+
+  // ── TRANSFORM: uniform scale, both axes same px/m ──
+  function getTransform(c){
+    const allX=STEPS.map(s=>s.toX).concat([0]);
+    const allY=STEPS.map(s=>s.toY).concat([0]);
+    const minX=Math.min(...allX), maxX=Math.max(...allX);
+    const minY=Math.min(...allY), maxY=Math.max(...allY);
+    const pad=0.12;
+    const iW=c.width*(1-2*pad), iH=c.height*(1-2*pad);
+    const scale=Math.min(iW/(maxX-minX||1), iH/(maxY-minY||1));
+    const dW=(maxX-minX)*scale, dH=(maxY-minY)*scale;
+    return { scale, offX:(c.width-dW)/2 - minX*scale, offY:(c.height+dH)/2 + minY*scale };
+  }
+
+  function w2c(wx,wy,T){ return {px:T.offX+wx*T.scale, py:T.offY-wy*T.scale}; }
+
+  // ── AXIS LABEL STATE ──
+  // Tracks: current running total, and a delta flash (shown briefly when a new step lands)
+  let axisState = { x:0, y:0, deltaX:null, deltaY:null, deltaTimer:null };
+
+  function fmt(v){ 
+    // Show up to 3 decimal places, trim trailing zeros
+    return (v>=0?'+':'')+parseFloat(v.toFixed(3)).toString()+'m';
+  }
+  function fmtTotal(v){ return parseFloat(v.toFixed(3)).toString()+'m'; }
+
+  function triggerAxisDelta(step){
+    // Compute delta for this step on each axis
+    const dx = (step.dir==='E'?1:step.dir==='W'?-1:0) * step.dist;
+    const dy = (step.dir==='N'?1:step.dir==='S'?-1:0) * step.dist;
+    if(dx!==0) axisState.deltaX = dx;
+    if(dy!==0) axisState.deltaY = dy;
+
+    // Clear existing timer
+    if(axisState.deltaTimer) clearTimeout(axisState.deltaTimer);
+    // Flash delta for 900ms, then clear
+    axisState.deltaTimer = setTimeout(()=>{
+      axisState.deltaX=null; axisState.deltaY=null;
+      axisState.x = revealed.reduce((s,st)=> s + (st.dir==='E'?1:st.dir==='W'?-1:0)*st.dist, 0);
+      axisState.y = revealed.reduce((s,st)=> s + (st.dir==='N'?1:st.dir==='S'?-1:0)*st.dist, 0);
+      drawPath();
+    }, 900);
+  }
+
+  // ── RENDER SEGMENTS (shared by main canvas and zoom inset) ──
+  function renderSegments(c, cx, T, progress, animIdx){
+    const S=c.width;
+    cx.clearRect(0,0,S,S);
+
+    // Grid
+    cx.strokeStyle='rgba(0,0,0,0.06)'; cx.lineWidth=0.5;
+    for(let gx=-2;gx<=12;gx++){ const a=w2c(gx,-3,T),b=w2c(gx,8,T); cx.beginPath(); cx.moveTo(a.px,a.py); cx.lineTo(b.px,b.py); cx.stroke(); }
+    for(let gy=-3;gy<=8;gy++){ const a=w2c(-2,gy,T),b=w2c(12,gy,T); cx.beginPath(); cx.moveTo(a.px,a.py); cx.lineTo(b.px,b.py); cx.stroke(); }
+
+    // ── RUNNING TOTAL AXIS LABELS ──
+    // Only draw on the main canvas (not zoom inset — zoom has no axis space)
+    if(c===canvas && revealed.length>0){
+      const totX = revealed.reduce((s,st)=> s+(st.dir==='E'?1:st.dir==='W'?-1:0)*st.dist, 0);
+      const totY = revealed.reduce((s,st)=> s+(st.dir==='N'?1:st.dir==='S'?-1:0)*st.dist, 0);
+
+      // During delta flash show: TOTAL (delta) in orange; after flash show just TOTAL in navy
+      const showDelta = axisState.deltaX!==null || axisState.deltaY!==null;
+
+      const fs = S*0.052; // font size — bigger since it's on the axis
+      cx.font = `bold ${fs}px Georgia`;
+
+      // X-axis label: placed below the x-axis line, centred on robot's current X position
+      const xLabelWorld = totX;
+      const xLabelPx = w2c(xLabelWorld, 0, T);
+      const xTotalTxt = fmtTotal(totX);
+
+      if(showDelta && axisState.deltaX!==null){
+        // Show delta in amber pill first
+        const deltaTxt = fmt(axisState.deltaX);
+        const combined = xTotalTxt + ' (' + deltaTxt + ')';
+        cx.font=`bold ${S*0.042}px Georgia`; cx.textAlign='center';
+        const tw=cx.measureText(combined).width, pd=S*0.016;
+        cx.fillStyle='#f5a623';
+        cx.beginPath(); cx.roundRect(xLabelPx.px-tw/2-pd, xLabelPx.py+S*0.03, tw+pd*2, S*0.052+pd, S*0.012); cx.fill();
+        cx.fillStyle='#fff';
+        cx.fillText(combined, xLabelPx.px, xLabelPx.py+S*0.07);
+      } else if(totX!==0){
+        cx.font=`bold ${fs}px Georgia`; cx.textAlign='center';
+        const tw=cx.measureText(xTotalTxt).width, pd=S*0.018;
+        cx.fillStyle='#1a1a2e';
+        cx.beginPath(); cx.roundRect(xLabelPx.px-tw/2-pd, xLabelPx.py+S*0.025, tw+pd*2, fs+pd, S*0.014); cx.fill();
+        cx.fillStyle='#f5c518';
+        cx.fillText(xTotalTxt, xLabelPx.px, xLabelPx.py+S*0.025+fs*0.82+pd*0.5);
+      }
+
+      // Y-axis label: placed left of y-axis, at robot's current Y position
+      const yLabelWorld = totY;
+      const yLabelPx = w2c(0, yLabelWorld, T);
+      const yTotalTxt = fmtTotal(totY);
+
+      if(showDelta && axisState.deltaY!==null){
+        const deltaTxt = fmt(axisState.deltaY);
+        const combined = yTotalTxt + ' (' + deltaTxt + ')';
+        cx.font=`bold ${S*0.042}px Georgia`; cx.textAlign='left';
+        const tw=cx.measureText(combined).width, pd=S*0.016;
+        const lx = yLabelPx.px + pd;
+        cx.fillStyle='#f5a623';
+        cx.beginPath(); cx.roundRect(lx, yLabelPx.py-S*0.028, tw+pd*2, S*0.052+pd, S*0.012); cx.fill();
+        cx.fillStyle='#fff';
+        cx.fillText(combined, lx+pd, yLabelPx.py+S*0.02);
+      } else if(totY!==0){
+        cx.font=`bold ${fs}px Georgia`; cx.textAlign='left';
+        const tw=cx.measureText(yTotalTxt).width, pd=S*0.018;
+        const lx = yLabelPx.px + pd;
+        cx.fillStyle='#1a1a2e';
+        cx.beginPath(); cx.roundRect(lx, yLabelPx.py-fs*0.6, tw+pd*2, fs+pd, S*0.014); cx.fill();
+        cx.fillStyle='#f5c518';
+        cx.fillText(yTotalTxt, lx+pd, yLabelPx.py+fs*0.36);
+      }
+    }
+
+    // Segments — NO inline distance labels
+    for(let i=0;i<revealed.length;i++){
+      const step=STEPS[i];
+      const from=w2c(step.fromX,step.fromY,T);
+      const to  =w2c(step.toX,  step.toY,  T);
+      let ex=to.px, ey=to.py;
+      if(i===animIdx && progress<1){ ex=from.px+(to.px-from.px)*progress; ey=from.py+(to.py-from.py)*progress; }
+
+      cx.beginPath(); cx.moveTo(from.px,from.py); cx.lineTo(ex,ey);
+      cx.strokeStyle='#1a1a2e'; cx.lineWidth=S*0.013; cx.lineCap='round';
+      cx.setLineDash([S*0.018,S*0.022]); cx.stroke(); cx.setLineDash([]);
+    }
+
+    // Origin dot
+    const o=w2c(0,0,T);
+    cx.beginPath(); cx.arc(o.px,o.py,S*0.028,0,Math.PI*2); cx.fillStyle='#1a1a2e'; cx.fill();
+    cx.fillStyle='#fff'; cx.font=`bold ${S*0.03}px Georgia`; cx.textAlign='center';
+    cx.fillText('S',o.px,o.py+S*0.011);
+
+    // Robot at current tip — size scales down as distances shrink
+    if(revealed.length>0){
+      const last=STEPS[revealed.length-1];
+      let rx=last.toX, ry=last.toY;
+      if(animIdx===revealed.length-1 && progress<1){
+        rx=last.fromX+(last.toX-last.fromX)*progress;
+        ry=last.fromY+(last.toY-last.fromY)*progress;
+      }
+      const rp=w2c(rx,ry,T);
+      // Max size at dist=10, min size at dist~0.05 — log scale feels natural
+      const currentDist = last.dist;
+      const maxDist = STEPS[0].dist; // 10
+      const minSize = S*0.018, maxSize = S*0.065;
+      const t = Math.max(0, Math.min(1, Math.log(currentDist/0.04) / Math.log(maxDist/0.04)));
+      const robotSize = minSize + (maxSize - minSize) * t;
+      cx.font=`${robotSize}px serif`; cx.textAlign='center';
+      cx.fillText('🤖', rp.px, rp.py + robotSize*0.35);
+    }
+
+    // Compass
+    const ccx=S*0.88, ccy=S*0.1, cr=S*0.055;
+    cx.fillStyle='rgba(26,26,46,0.12)'; cx.beginPath(); cx.arc(ccx,ccy,cr,0,Math.PI*2); cx.fill();
+    cx.font=`bold ${S*0.028}px Georgia`; cx.textAlign='center'; cx.fillStyle='#1a1a2e';
+    cx.fillText('N',ccx,ccy-cr*0.5); cx.fillText('S',ccx,ccy+cr*0.85);
+    cx.fillText('E',ccx+cr*0.72,ccy+S*0.01); cx.fillText('W',ccx-cr*0.72,ccy+S*0.01);
+  }
+
+  function drawPath(){ renderSegments(canvas,ctx,getTransform(canvas),1,-1); }
+
+  // ── ANIMATED SEGMENT ──
+  const ANIM_DURATION=550;
+  let animating=false;
+
+  function animateSegment(stepIdx, onDone){
+    animating=true;
+    const start=performance.now();
+    const T=getTransform(canvas);
+    function frame(now){
+      const p=Math.min((now-start)/ANIM_DURATION,1);
+      const eased=1-Math.pow(1-p,2);
+      renderSegments(canvas,ctx,T,eased,stepIdx);
+      if(p<1) requestAnimationFrame(frame);
+      else { animating=false; onDone&&onDone(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ── OPTIONS ──
+  const DIR_NAMES={E:'East',N:'North',W:'West',S:'South'};
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+  function generateMoveOptions(idx){
+    const c=STEPS[idx];
+    const wrongDir=DIRS[(DIRS.findIndex(d=>d.d===c.dir)+1)%4].d;
+    return shuffle([
+      {dir:c.dir,    dist:c.dist,   correct:true},
+      {dir:wrongDir, dist:c.dist,   correct:false},
+      {dir:c.dir,    dist:c.dist*2, correct:false},
+    ]);
+  }
+
+  function generateGPOptions(){
+    return shuffle([
+      { label:'a = 10,  r = −¼', sub:'GP: 10, −2.5, 0.625…',    correct:true  },
+      { label:'a = 10,  r = ½',  sub:'GP: 10, 5, 2.5…',          correct:false },
+      { label:'a = 10,  r = −½', sub:'GP: 10, −5, 2.5…',         correct:false },
+      { label:'a = 5,   r = −¼', sub:'GP: 5, −1.25, 0.3125…',    correct:false },
+    ]);
+  }
+
+  function renderQuestion(){
+    document.getElementById('stepNum').textContent=currentQ+1;
+    document.getElementById('stepTotal').textContent=TOTAL_Q;
+    const grid=document.getElementById('optionsGrid');
+    grid.innerHTML='';
+
+    if(currentQ<STEPS.length){
+      document.getElementById('questionLabel').textContent=currentQ===0?'Where does the robot move first?':'Where does the robot move next?';
+      grid.className='options-grid';
+      generateMoveOptions(currentQ).forEach((opt,i,arr)=>{
+        const btn=document.createElement('button'); btn.className='option-btn';
+        btn.innerHTML=`<span class="opt-dir">${DIR_NAMES[opt.dir]}</span><span class="opt-val">${opt.dist>=1?opt.dist.toFixed(2):opt.dist.toFixed(3)} m</span>`;
+        btn.onclick=()=>handleMove(opt,btn,arr); grid.appendChild(btn);
+      });
+    } else {
+      document.getElementById('questionLabel').textContent="Which GP defines the X-axis movements?";
+      grid.className='options-grid';
+      generateGPOptions().forEach((opt,i,arr)=>{
+        const btn=document.createElement('button'); btn.className='option-btn';
+        btn.innerHTML=`<span class="opt-val">${opt.label}</span><span class="opt-dir">${opt.sub}</span>`;
+        btn.onclick=()=>handleFinal(opt,btn,arr); grid.appendChild(btn);
+      });
+    }
+  }
+
+  function handleMove(opt,btn,allOpts){
+    document.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+    const stepIdx=currentQ;
+    if(opt.correct){
+      btn.classList.add('correct'); score=Math.min(100,score+MOVE_PTS); coins+=1; updateHUD();
+      showFeedback('✅','Correct!',`+${MOVE_PTS} pts`);
+    } else {
+      btn.classList.add('wrong');
+      document.querySelectorAll('.option-btn').forEach((b,i)=>{
+        if(allOpts[i]&&allOpts[i].correct) b.classList.add('correct');
+        else if(b!==btn) b.classList.add('disabled-dim');
+      });
+      showFeedback('❌','Not quite!','');
+    }
+    revealed.push(STEPS[stepIdx]);
+    triggerAxisDelta(STEPS[stepIdx]);
+    animateSegment(stepIdx, ()=>{ setTimeout(()=>{ hideFeedback(); currentQ++; if(currentQ<TOTAL_Q) renderQuestion(); }, 400); });
+  }
+
+  function handleFinal(opt,btn,allOpts){
+    document.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+    if(opt.correct){
+      btn.classList.add('correct'); score=Math.min(100,score+FINAL_PTS); coins+=3; updateHUD();
+      showFeedback('🎯','Spot On!',`+${FINAL_PTS} pts`);
+    } else {
+      btn.classList.add('wrong');
+      document.querySelectorAll('.option-btn').forEach((b,i)=>{
+        if(allOpts[i]&&allOpts[i].correct) b.classList.add('correct');
+        else if(b!==btn) b.classList.add('disabled-dim');
+      });
+      showFeedback('❌','Not quite!','');
+    }
+    setTimeout(()=>{ hideFeedback(); showResult(); },1800);
+  }
+
+  function showFeedback(e,t,s){
+    document.getElementById('fbEmoji').textContent=e;
+    document.getElementById('fbText').textContent=t;
+    document.getElementById('fbSub').textContent=s;
+    document.getElementById('feedback').classList.add('show');
+  }
+  function hideFeedback(){ document.getElementById('feedback').classList.remove('show'); }
+  function updateHUD(){ document.getElementById('scoreVal').textContent=score; document.getElementById('coinsVal').textContent=coins; }
+
+  function showResult(){
+    const last=STEPS[STEPS.length-1];
+    document.getElementById('finalScore').textContent=score;
+    document.getElementById('finalCoins').textContent=coins;
+    document.getElementById('finalPosText').textContent=`X-axis GP: a=10, r=−¼\nFinal pos ≈ ${last.toX.toFixed(2)}m E,  ${last.toY.toFixed(2)}m N`;
+    document.getElementById('result-screen').classList.remove('hidden');
+    endGame(score,coins,retries);
+  }
+
+  function startGame(){
+    score=0; coins=0; currentQ=0; revealed=[];
+    axisState={x:0,y:0,deltaX:null,deltaY:null,deltaTimer:null};
+    updateHUD(); sizeCanvas(); drawPath(); renderQuestion();
+    document.getElementById('intro-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.add('hidden');
+  }
+
+  function retryGame(){ retries++; document.getElementById('result-screen').classList.add('hidden'); startGame(); }
+
+  window.addEventListener('resize',()=>{ sizeCanvas(); drawPath(); });
+
+  // Init: set --vpw before anything renders
+  setVpw();
+</script>
+</body>
+</html>
