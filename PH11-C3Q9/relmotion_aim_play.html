@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aim the Throw — Get the Key to Lara</title>
+<style>
+  :root{--navy:#1b2348;--gold:#ffcf33;--cream:#fcf4e0;--ink:#1b2348;--muted:#6b6f86;--green:#2fa84f;--red:#d9483b;--line:rgba(27,35,72,.14);--sans:'Trebuchet MS',Verdana,-apple-system,BlinkMacSystemFont,sans-serif;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#e9e6df;font-family:var(--sans);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:8px}
+  .app{aspect-ratio:3/4;height:min(96vh,860px);max-width:96vw;background:var(--cream);border:3px solid var(--navy);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  header{background:var(--navy);color:var(--gold);padding:10px 14px;text-align:center;flex-shrink:0}
+  header .t{font-weight:bold;font-style:italic;letter-spacing:.04em;font-size:28px;text-transform:uppercase;line-height:1.05}
+  header .s{font-size:18px;color:#cfd3ea;font-style:italic;margin-top:3px}
+  .split{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;padding:10px 12px 0}
+  .panel{flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--navy);border-radius:12px;overflow:hidden;background:linear-gradient(#eaf2fb,#f3f8ff 62%,#f7f2e6)}
+  .plabel{background:var(--navy);color:var(--gold);font-size:20px;font-weight:bold;letter-spacing:.02em;padding:5px 10px;flex-shrink:0}
+  .plabel span{color:#cfd3ea;font-weight:normal;font-style:italic;font-size:16px}
+  .panel canvas{flex:1;min-height:0;width:100%}
+  .msg{margin:9px 12px 0;padding:8px;text-align:center;font-size:24px;font-weight:bold;border-radius:12px;background:#fff;border:2px solid var(--navy);flex-shrink:0}
+  .controls{padding:10px 14px 4px;flex-shrink:0}
+  .ctop{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--red);flex-shrink:0}
+  .clab{font-size:22px;font-weight:bold;flex:1}
+  .cval{font-size:22px;font-weight:bold;font-family:'Courier New',monospace}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:34px;background:transparent;cursor:pointer;display:block}
+  input[type=range]:disabled{opacity:.4;cursor:default}
+  input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:6px;background:var(--line)}
+  input[type=range]::-moz-range-track{height:10px;border-radius:6px;background:var(--line)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.25);margin-top:-9px}
+  input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--navy)}
+  .ends{display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:var(--muted);margin-top:-2px}
+  .btns{display:flex;padding:8px 12px 14px;flex-shrink:0}
+  .btn{flex:1;padding:14px;font-size:26px;font-weight:bold;font-family:inherit;border:none;border-radius:26px;cursor:pointer;background:var(--green);color:#fff;transition:transform .08s}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn:active:not(:disabled){transform:scale(.97)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="t">Aim the Throw</div>
+    <div class="s">Get the Key to Lara</div>
+  </header>
+  <div class="split">
+    <div class="panel">
+      <div class="plabel">&#127757; GROUND VIEW <span>&middot; standing still</span></div>
+      <canvas id="sceneG"></canvas>
+    </div>
+    <div class="panel">
+      <div class="plabel">&#128722; ALEX'S VIEW <span>&middot; on the trolley</span></div>
+      <canvas id="sceneA"></canvas>
+    </div>
+  </div>
+  <div class="msg" id="msg">Aim with the slider, then press Play</div>
+  <div class="controls">
+    <div class="ctop">
+      <div class="dot"></div>
+      <div class="clab">Throw &mdash; back &#9668; &#9658; forward</div>
+    </div>
+    <input type="range" id="vx-sl" min="-5" max="5" step="0.5" value="0">
+    <div class="ends"><span>&#9668; Madhav</span><span>Lara &#9658;</span></div>
+  </div>
+  <div class="btns"><button class="btn" id="play">&#9654; Play</button></div>
+</div>
+<script>
+const g=9.8, lag=1.0, handY=1.0;
+const V=4, vy=6;
+const T=2*vy/g;                       // flight time
+const LARA=Math.round(3*T*100)/100;   // distance so vx=+3 m/s is the bullseye (~3.67 m)
+const MADHAV=-LARA, TOL=0.55;
+let vx=0;
+
+let state='idle';                     // idle | lag | fly | result
+let playStart=0, resultStart=0, vxActive=0, hit=false;
+
+const msgEl=document.getElementById('msg');
+const sl=document.getElementById('vx-sl'), playBtn=document.getElementById('play');
+
+const panels=[
+  {cv:document.getElementById('sceneG'),frame:'ground'},
+  {cv:document.getElementById('sceneA'),frame:'alex'}
+];
+panels.forEach(p=>{
+  p.ctx=p.cv.getContext('2d');
+  new ResizeObserver(()=>{const r=p.cv.getBoundingClientRect();p.dpr=window.devicePixelRatio||1;p.W=r.width;p.H=r.height;p.cv.width=Math.round(r.width*p.dpr);p.cv.height=Math.round(r.height*p.dpr);p.ctx.setTransform(p.dpr,0,0,p.dpr,0,0);}).observe(p.cv);
+});
+
+sl.addEventListener('input',()=>{vx=parseFloat(sl.value);});
+playBtn.addEventListener('click',()=>{
+  if(state!=='idle')return;
+  state='lag'; playStart=performance.now(); vxActive=vx;
+  sl.disabled=true; playBtn.disabled=true; playBtn.textContent='Playing\u2026';
+  msgEl.textContent='Here it goes\u2026'; msgEl.style.color='var(--ink)'; msgEl.style.borderColor='var(--navy)';
+});
+function reset(){
+  state='idle'; sl.disabled=false; playBtn.disabled=false; playBtn.textContent='\u25b6 Play';
+  msgEl.textContent='Aim with the slider, then press Play'; msgEl.style.color='var(--ink)'; msgEl.style.borderColor='var(--navy)';
+}
+
+function arrow(ctx,x,y,dx,dy,col,wd){if(Math.hypot(dx,dy)<3)return;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=wd||4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+dx,y+dy);ctx.stroke();const a=Math.atan2(dy,dx),h=12;ctx.beginPath();ctx.moveTo(x+dx,y+dy);ctx.lineTo(x+dx-h*Math.cos(a-0.42),y+dy-h*Math.sin(a-0.42));ctx.lineTo(x+dx-h*Math.cos(a+0.42),y+dy-h*Math.sin(a+0.42));ctx.closePath();ctx.fill();}
+function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function trolley(ctx,ax,gy,label,col,faded){ctx.globalAlpha=faded?0.5:1;const bw=42,bh=18;ctx.fillStyle='#3a3f5e';ctx.beginPath();ctx.arc(ax-12,gy-5,5,0,7);ctx.arc(ax+12,gy-5,5,0,7);ctx.fill();ctx.fillStyle=col;ctx.strokeStyle='#1b2348';ctx.lineWidth=2;rr(ctx,ax-bw/2,gy-bh-6,bw,bh,4);ctx.fill();ctx.stroke();const px=ax,py=gy-bh-6;ctx.strokeStyle='#1b2348';ctx.lineWidth=2.6;ctx.fillStyle='#1b2348';ctx.beginPath();ctx.arc(px,py-17,5,0,7);ctx.fill();ctx.beginPath();ctx.moveTo(px,py-12);ctx.lineTo(px,py-2);ctx.stroke();ctx.beginPath();ctx.moveTo(px,py-8);ctx.lineTo(px+8,py-14);ctx.stroke();ctx.fillStyle=col==='#f3d27a'?'#1b2348':col;ctx.font='bold 18px '+getComputedStyle(document.body).fontFamily;ctx.textAlign='center';ctx.fillText(label,px,gy-bh-32);ctx.globalAlpha=1;return {hx:px+8,hy:py-14};}
+function keyTri(ctx,x,y,s){ctx.save();ctx.translate(x,y);ctx.rotate(performance.now()/400);ctx.fillStyle='#f3b71e';ctx.strokeStyle='#9a6b00';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s*0.87,s*0.5);ctx.lineTo(-s*0.87,s*0.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#9a6b00';ctx.beginPath();ctx.arc(0,0,2,0,7);ctx.fill();ctx.restore();}
+
+function drawPanel(p,st){
+  const ctx=p.ctx,W=p.W,Hc=p.H;if(!W)return;
+  const padL=44,padR=18,padT=18,padB=42,gy=Hc-padB;
+  const yMaxW=handY+vy*vy/(2*g);
+  const GMIN=-4.5, GMAX=15.5;            // FIXED ground-view window (metres) -> constant scale
+  let S,originX,centerX;
+  if(p.frame==='ground'){const availW=W-padL-padR,availH=gy-padT;S=Math.min(availW/(GMAX-GMIN),availH/Math.max(0.8,yMaxW),40);originX=padL-GMIN*S;}
+  else{const availH=gy-padT;S=Math.min(availH/Math.max(0.8,yMaxW),48);centerX=W*0.42;}
+  const sx=p.frame==='ground'?(xw)=>originX+xw*S:(xw)=>centerX+(xw-st.AlexX)*S;
+  const syf=(yw)=>gy-yw*S;
+  ctx.clearRect(0,0,W,Hc);
+  ctx.fillStyle='#e7dcc2';ctx.fillRect(0,gy,W,Hc-gy);
+  ctx.strokeStyle='#1b2348';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();
+  ctx.strokeStyle='rgba(27,35,72,.18)';ctx.lineWidth=3;const tie=1.0;
+  if(p.frame==='ground'){for(let k=Math.floor(GMIN)-1;k<=GMAX+1;k++){const x=sx(k*tie);if(x>-10&&x<W+10){ctx.beginPath();ctx.moveTo(x,gy+3);ctx.lineTo(x,gy+11);ctx.stroke();}}}
+  else{const baseW=st.AlexX-6;for(let k=Math.floor(baseW/tie);k<baseW+18;k++){const x=sx(k*tie);if(x>-10&&x<W+10){ctx.beginPath();ctx.moveTo(x,gy+3);ctx.lineTo(x,gy+11);ctx.stroke();}}}
+  // Lara highlight on a hit
+  const laraX=sx(LARA+V*st.tau);
+  if(st.result&&st.hit){ctx.fillStyle='rgba(47,168,79,.25)';ctx.beginPath();ctx.arc(laraX,gy-18,26,0,7);ctx.fill();}
+  trolley(ctx,laraX,gy,'LARA','#c8533b',!(st.result&&st.hit));
+  trolley(ctx,sx(MADHAV+V*st.tau),gy,'MADHAV','#6b6f86',true);
+  const hand=trolley(ctx,sx(st.AlexX),gy,'ALEX','#f3d27a',false);
+  // key
+  const kx=sx(st.keyX),ky=syf(st.keyY);keyTri(ctx,kx,ky,11);
+  // aim arrow on Alex (before throw)
+  if(st.showAim){
+    const A=7;const ax=(p.frame==='ground'?V+st.aimVx:st.aimVx)*A, ay=-vy*A;
+    arrow(ctx,hand.hx,hand.hy,ax,ay,'#d9483b',5);
+  }
+  // velocity vector on key (during flight)
+  if(st.flying){const A=5;const nx=(p.frame==='ground'?st.gX:st.aX),ny=(p.frame==='ground'?st.gY:st.aY);arrow(ctx,kx,ky,nx*A,-ny*A,'#d9483b',4);}
+}
+
+function computeState(tau,vxc,opts){
+  const flying=tau>lag && tau<lag+T;
+  const s=tau>lag?Math.min(tau-lag,T):0;
+  const AlexX=V*tau;let keyX,keyY;
+  if(tau<=lag){keyX=AlexX;keyY=handY;}else{keyX=V*lag+(V+vxc)*s;keyY=Math.max(0,handY+vy*s-0.5*g*s*s);}
+  const keyEndX=V*lag+(V+vxc)*T;
+  const laraX=LARA+V*tau, madhavX=MADHAV+V*tau;
+  return {tau,flying,s,AlexX,keyX,keyY,
+    gX:V+vxc,gY:vy-g*s,aX:vxc,aY:vy-g*s,
+    showAim:opts.showAim,aimVx:opts.aimVx,result:opts.result,hit:opts.hit,
+    xMinW:Math.min(0,keyEndX,madhavX),xMaxW:Math.max(keyEndX,AlexX,laraX)+1.0};
+}
+
+function loop(){
+  const now=performance.now();
+  let tau, opts={showAim:false,aimVx:vx,result:false,hit:false};
+  if(state==='idle'){
+    tau=0; opts.showAim=true; opts.aimVx=vx;
+  }else{
+    tau=(now-playStart)/1000;
+    if(tau<lag){ opts.showAim=true; opts.aimVx=vxActive; }
+    else if(tau<lag+T){ /* flying */ }
+    else{
+      if(state!=='result'){ state='result'; resultStart=now; hit=Math.abs(vxActive*T-LARA)<=TOL;
+        if(hit){msgEl.textContent='\uD83C\uDF89 Lara got the key!';msgEl.style.color='var(--green)';msgEl.style.borderColor='var(--green)';}
+        else{msgEl.textContent='\u274C You Missed';msgEl.style.color='var(--red)';msgEl.style.borderColor='var(--red)';}
+      }
+      tau=lag+T;                       // freeze on landing
+      opts.result=true; opts.hit=hit;
+      if(now-resultStart>=2000) reset();
+    }
+  }
+  const st=computeState(tau, state==='idle'?vx:vxActive, opts);
+  panels.forEach(p=>drawPanel(p,st));
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
