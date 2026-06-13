@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projectile — Pick v₂ & θ₂</title>
+<style>
+  :root{
+    --navy:#1b2348; --gold:#ffcf33; --cream:#fcf4e0;
+    --green:#2fa84f; --blue:#2e6fdb; --red:#d9483b;
+    --sky:#eef5ff; --ground:#e9dcae;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#11162e;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:10px;
+  }
+  .app{
+    width:min(94vw,430px);aspect-ratio:3/4;max-height:97svh;
+    background:var(--cream);border:3px solid var(--navy);border-radius:20px;
+    display:flex;flex-direction:column;overflow:hidden;
+    padding:12px 14px 14px;gap:8px;box-shadow:0 12px 32px rgba(0,0,0,.35);
+  }
+  .title{
+    text-align:center;color:var(--gold);font-weight:bold;font-style:italic;
+    text-transform:uppercase;letter-spacing:.04em;font-size:15px;line-height:1.1;
+    background:var(--navy);padding:7px 8px;border-radius:11px;
+  }
+  .info-box{
+    background:#fff;border:2px solid var(--navy);border-radius:11px;
+    padding:8px 12px;display:flex;flex-direction:column;gap:3px;text-align:center;
+  }
+  .info-box span{font-size:13px;font-weight:bold;color:var(--navy)}
+  .info-box .find{font-size:12px;color:#6b6f86;font-weight:bold;letter-spacing:.02em}
+  .scene-wrap{
+    flex:1;min-height:0;border:2px solid var(--navy);border-radius:13px;
+    overflow:hidden;background:var(--sky);
+  }
+  canvas{display:block;width:100%;height:100%}
+  .bottom{display:flex;flex-direction:column;gap:7px}
+  .qlabel{
+    text-align:center;font-weight:bold;font-size:13px;color:var(--navy);
+    background:#fff;border:2px solid var(--navy);border-radius:11px;padding:5px 8px;
+  }
+  .options{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .opt{
+    padding:8px 4px;font-family:inherit;
+    border:2px solid var(--navy);border-radius:11px;background:var(--cream);
+    color:var(--navy);cursor:pointer;text-align:center;transition:.12s;
+  }
+  .opt:hover{background:#ede8d8}
+  .opt.selected{background:var(--navy);color:var(--gold)}
+  .opt .opt-v{font-size:13px;font-weight:bold;display:block;line-height:1.3}
+  .opt .opt-t{font-size:13px;font-weight:bold;display:block;line-height:1.3}
+  .opt .opt-sep{font-size:9px;opacity:.5;display:block;line-height:1}
+  .opt.selected .opt-sep{opacity:.6}
+  .play{
+    align-self:center;width:62px;height:62px;border-radius:50%;
+    border:3px solid var(--navy);background:#aaa;color:#fff;
+    font-size:26px;cursor:default;display:flex;align-items:center;
+    justify-content:center;padding-left:4px;
+    box-shadow:0 5px 0 #888;transition:transform .1s;opacity:.45;
+  }
+  .play.ready{background:var(--green);box-shadow:0 5px 0 #1d7a37;cursor:pointer;opacity:1}
+  .play.ready:active{transform:translateY(3px);box-shadow:0 2px 0 #1d7a37}
+  .result-banner{
+    text-align:center;font-weight:bold;font-size:13px;
+    border-radius:11px;padding:7px 10px;border:2px solid var(--navy);
+  }
+  .result-banner.correct{background:#d4f5ea;color:#0a5c3a}
+  .result-banner.wrong{background:#fde8e8;color:#8a1010}
+  .insight{
+    background:#fff;border:2px solid var(--navy);border-radius:11px;
+    padding:8px 10px;font-size:12px;color:var(--navy);
+    line-height:1.65;text-align:center;font-weight:bold;
+  }
+  .try-btn{
+    align-self:center;padding:9px 28px;font-size:14px;font-weight:bold;font-family:inherit;
+    border:2px solid var(--navy);border-radius:22px;background:var(--cream);
+    color:var(--navy);cursor:pointer;transition:.12s;
+  }
+  .try-btn:hover{background:var(--navy);color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="title">Which (v₂, θ₂) causes a collision?</div>
+
+  <div class="info-box">
+    <span>v₁ = 10 m/s &nbsp;|&nbsp; θ₁ = 30°</span>
+    <span class="find">Find v₂ &amp; θ₂ that causes a collision</span>
+  </div>
+
+  <div class="scene-wrap"><canvas id="scene"></canvas></div>
+
+  <div class="bottom">
+    <div id="s-mcq">
+      <div class="qlabel" id="qlabel" style="margin-bottom:7px">Pick the correct (v₂, θ₂) pair ↓</div>
+      <div class="options" id="opts"></div>
+    </div>
+    <button class="play" id="play">▶</button>
+    <div id="s-result" style="display:none;flex-direction:column;gap:7px">
+      <div class="result-banner" id="rbanner"></div>
+      <div class="insight" id="insight"></div>
+      <button class="try-btn" id="trybtn">↩ Try Again</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const g = 10;
+const V1=10, T1=30;
+const ux1 = V1*Math.cos(T1*Math.PI/180);  // ~8.66
+const uy1 = V1*Math.sin(T1*Math.PI/180);  // 5
+const TF1 = 2*uy1/g;                       // 1 s
+const SPAN = ux1*TF1;                      // ~8.66 m
+
+// Options: each is {v2, theta2}. Correct = one where v2*sin(theta2) ≈ uy1 = 5
+// Correct: v2=15, θ2=20° → 15*sin20°=5.13 ≈ 5 ✓
+// Wrong A:  v2=8,  θ2=45° → 8*sin45°=5.66 ✗
+// Wrong B:  v2=20, θ2=25° → 20*sin25°=8.45 ✗
+// Wrong C:  v2=12, θ2=35° → 12*sin35°=6.88 ✗
+const OPTIONS=[
+  {v2:15, t2:20, correct:true},
+  {v2:8,  t2:45, correct:false},
+  {v2:20, t2:25, correct:false},
+  {v2:12, t2:35, correct:false},
+];
+
+const WXMIN=-1, WXMAX=SPAN+1, WYMIN=0, WYMAX=3;
+const REALDUR=1800;
+
+let chosenIdx=null, ux2=0,uy2=0,TF2=0,V2chosen=0;
+let isCorrect=false;
+let state='idle', startTs=0, simT=0, TC=TF1;
+
+function setOption(idx){
+  chosenIdx=idx;
+  const o=OPTIONS[idx];
+  V2chosen=o.v2;
+  ux2=o.v2*Math.cos(o.t2*Math.PI/180);
+  uy2=o.v2*Math.sin(o.t2*Math.PI/180);
+  TF2=2*uy2/g;
+  isCorrect=o.correct;
+  TC = isCorrect ? SPAN/(ux1+ux2) : Math.max(TF1,TF2);
+}
+
+function posA(t){ const tc=Math.min(t,TF1); return [ux1*tc, Math.max(0,uy1*tc-0.5*g*tc*tc)]; }
+function posB(t){
+  if(chosenIdx===null)return [SPAN,0];
+  const tc=Math.min(t,TF2);
+  return [SPAN-ux2*tc, Math.max(0,uy2*tc-0.5*g*tc*tc)];
+}
+
+const cv=document.getElementById('scene'), ctx=cv.getContext('2d');
+let dpr=1,CW=0,CH=0,S=1,mX=0,gY=0;
+new ResizeObserver(()=>{
+  const r=cv.getBoundingClientRect();
+  dpr=window.devicePixelRatio||1;CW=r.width;CH=r.height;
+  cv.width=Math.round(CW*dpr);cv.height=Math.round(CH*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  layout();
+}).observe(cv);
+
+function layout(){
+  const pad=16;
+  S=Math.min((CW-2*pad)/(WXMAX-WXMIN),(CH-2*pad)/(WYMAX-WYMIN));
+  const dW=(WXMAX-WXMIN)*S,dH=(WYMAX-WYMIN)*S;
+  mX=(CW-dW)/2;gY=(CH-dH)/2+dH;
+}
+const X=wx=>mX+(wx-WXMIN)*S;
+const Y=wy=>gY-wy*S;
+
+function drawBall(x,y,col,label){
+  ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.fillStyle=col;ctx.fill();
+  ctx.lineWidth=2.2;ctx.strokeStyle='#fff';ctx.stroke();
+  ctx.fillStyle='#1b2348';ctx.font='bold 13px Trebuchet MS';
+  ctx.textAlign='center';ctx.fillText(label,x,y-13);
+}
+function burst(x,y){
+  ctx.save();ctx.translate(x,y);
+  ctx.strokeStyle='#ffcf33';ctx.lineWidth=3;
+  for(let i=0;i<8;i++){ctx.rotate(Math.PI/4);
+    ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(22,0);ctx.stroke();}
+  ctx.beginPath();ctx.arc(0,0,7,0,7);
+  ctx.fillStyle='#d9483b';ctx.fill();
+  ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+  ctx.restore();
+  ctx.font='bold 16px Trebuchet MS';ctx.textAlign='center';
+  ctx.fillText('💥',x,y-20);
+}
+
+function renderWorld(t){
+  const sx=wx=>X(wx), sy=wy=>Y(wy);
+  // ground
+  const gl=sy(0);
+  ctx.fillStyle='#e9dcae';ctx.fillRect(0,gl,CW,CH-gl);
+  ctx.strokeStyle='#b9a96a';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,gl);ctx.lineTo(CW,gl);ctx.stroke();
+  // tufts
+  ctx.strokeStyle='rgba(150,135,80,.75)';ctx.lineWidth=2;
+  for(let wx=WXMIN-2;wx<=WXMAX+2;wx++){
+    const x=sx(wx),y=sy(0);
+    if(x<-8||x>CW+8)continue;
+    ctx.beginPath();ctx.moveTo(x,y+2);ctx.lineTo(x,Math.min(y+11,CH));ctx.stroke();
+  }
+
+  const pa=posA(t), pb=posB(t);
+  const aS=[sx(pa[0]),sy(pa[1])];
+  const bS=[sx(pb[0]),sy(pb[1])];
+
+  if(state!=='idle'){
+    ctx.strokeStyle='rgba(232,124,42,.9)';ctx.lineWidth=3;ctx.beginPath();
+    for(let i=0;i<=60;i++){
+      const p=posA(Math.min(t*i/60,TF1));
+      i?ctx.lineTo(sx(p[0]),sy(p[1])):ctx.moveTo(sx(p[0]),sy(p[1]));
+    }
+    ctx.stroke();
+    if(chosenIdx!==null){
+      ctx.strokeStyle='rgba(46,111,219,.9)';ctx.lineWidth=3;ctx.beginPath();
+      for(let i=0;i<=60;i++){
+        const p=posB(Math.min(t*i/60,TF2));
+        i?ctx.lineTo(sx(p[0]),sy(p[1])):ctx.moveTo(sx(p[0]),sy(p[1]));
+      }
+      ctx.stroke();
+    }
+  }
+
+  if(state==='done'&&isCorrect){
+    burst(aS[0],aS[1]);
+  } else {
+    drawBall(aS[0],aS[1],'#e87c2a','1');
+    if(chosenIdx!==null) drawBall(bS[0],bS[1],'#2e6fdb','2');
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#eef5ff';ctx.fillRect(0,0,CW,CH);
+  renderWorld(simT);
+}
+function loop(now){
+  if(state==='playing'){
+    const el=(now-startTs)/REALDUR;
+    simT=Math.min(el,1)*TC;
+    if(el>=1){simT=TC;state='done';showResult();}
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Build option buttons
+const optGrid=document.getElementById('opts');
+OPTIONS.forEach((o,idx)=>{
+  const b=document.createElement('button');
+  b.className='opt';
+  b.innerHTML=`<span class="opt-v">v₂ = ${o.v2} m/s</span><span class="opt-sep">────</span><span class="opt-t">θ₂ = ${o.t2}°</span>`;
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.opt').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');
+    setOption(idx);
+    document.getElementById('opts').style.display='none';
+    document.getElementById('qlabel').style.display='none';
+    document.getElementById('play').classList.add('ready');
+    state='idle';simT=0;
+  });
+  optGrid.appendChild(b);
+});
+
+document.getElementById('play').addEventListener('click',()=>{
+  if(chosenIdx===null)return;
+  state='playing';startTs=performance.now();
+  document.getElementById('play').textContent='▶';
+});
+
+function showResult(){
+  document.getElementById('play').style.display='none';
+  document.getElementById('s-result').style.display='flex';
+  const b=document.getElementById('rbanner');
+  b.className='result-banner '+(isCorrect?'correct':'wrong');
+  b.textContent=isCorrect?'✓ Correct! They collide mid-air! 💥':'✗ Not quite — they miss each other';
+  const o=OPTIONS[chosenIdx];
+  document.getElementById('insight').innerHTML=isCorrect
+    ?`v₁ sin θ₁ = v₂ sin θ₂<br>10 × sin 30° = 15 × sin 20° = <span style="color:#d9483b">5 m/s</span> ✓`
+    :`${o.v2} × sin ${o.t2}° = <span style="color:#d9483b">${(o.v2*Math.sin(o.t2*Math.PI/180)).toFixed(1)} m/s</span> ≠ 5 m/s<br>Need v₂ sin θ₂ = v₁ sin θ₁ = 5 m/s`;
+}
+
+document.getElementById('trybtn').addEventListener('click',()=>{
+  chosenIdx=null;state='idle';simT=0;
+  document.querySelectorAll('.opt').forEach(x=>x.classList.remove('selected'));
+  document.getElementById('opts').style.display='grid';
+  document.getElementById('qlabel').style.display='block';
+  document.getElementById('s-result').style.display='none';
+  const pb=document.getElementById('play');
+  pb.classList.remove('ready');pb.textContent='▶';pb.style.display='flex';
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimum Separation of Two Projectiles</title>
+<style>
+  :root{
+    --navy:#1b2348; --gold:#ffcf33; --cream:#fcf4e0;
+    --green:#2fa84f; --blue:#2e6fdb; --red:#d9483b;
+    --sky:#eef5ff; --ground:#e9dcae;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#11162e;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:10px;
+  }
+  .app{
+    width:min(94vw,430px);aspect-ratio:3/4;max-height:97svh;
+    background:var(--cream);border:3px solid var(--navy);border-radius:20px;
+    display:flex;flex-direction:column;overflow:hidden;
+    padding:12px 14px 14px;gap:9px;box-shadow:0 12px 32px rgba(0,0,0,.35);
+  }
+  .title{
+    text-align:center;color:var(--gold);font-weight:bold;font-style:italic;
+    text-transform:uppercase;letter-spacing:.04em;font-size:15px;line-height:1.1;
+    background:var(--navy);padding:7px 8px;border-radius:11px;
+  }
+  .cond{
+    text-align:center;background:#fff;color:var(--navy);
+    font-weight:bold;font-size:18px;border-radius:11px;padding:5px 8px;
+    border:2px solid var(--navy);
+  }
+  .cond small{font-weight:bold;font-size:11px;display:block;opacity:.8;letter-spacing:.02em}
+  .scene-wrap{
+    flex:1;min-height:0;border:2px solid var(--navy);border-radius:13px;
+    overflow:hidden;background:var(--sky);
+  }
+  canvas{display:block;width:100%;height:100%}
+
+  .flabel{text-align:center;color:var(--navy);font-weight:bold;font-size:11px;
+    letter-spacing:.1em;text-transform:uppercase;opacity:.65}
+  .frames{display:flex;gap:7px}
+  .fbtn{
+    flex:1;padding:9px 4px;font-size:13px;font-weight:bold;cursor:pointer;
+    border:2px solid var(--navy);border-radius:11px;background:var(--cream);
+    color:var(--navy);font-family:inherit;transition:.12s;
+  }
+  .fbtn.active{background:var(--navy);color:#fff}
+  .play{
+    align-self:center;width:62px;height:62px;border-radius:50%;
+    border:3px solid var(--navy);background:var(--green);color:#fff;
+    font-size:26px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;padding-left:4px;transition:transform .1s;
+    box-shadow:0 5px 0 #1d7a37;
+  }
+  .play:active{transform:translateY(3px);box-shadow:0 2px 0 #1d7a37}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title">Minimum Separation of Two Projectiles</div>
+  <div class="cond">
+    <small>Condition for no collision</small>
+    v<sub>1</sub> sin θ<sub>1</sub> ≠ v<sub>2</sub> sin θ<sub>2</sub>
+  </div>
+
+  <div class="scene-wrap"><canvas id="scene"></canvas></div>
+
+  <div class="flabel">Frame</div>
+  <div class="frames" id="frames">
+    <button class="fbtn active" data-f="ground">🌍 Ground</button>
+    <button class="fbtn" data-f="A">🟢 Ball A</button>
+    <button class="fbtn" data-f="B">🔵 Ball B</button>
+  </div>
+  <button class="play" id="play" aria-label="Play">▶</button>
+</div>
+
+<script>
+const g = 9.8;
+
+// ---- Preset: no-collision condition ----
+// A launches from x=0, B from x=9
+// uyA=12, uyB=5  → big vertical speed difference → large min separation ~5 m
+// dvx=9 (closing), dvy=7 (vertical diff) → t_min ≈ 0.76 s
+const uxA=4, uyA=12;   // Ball A velocity components
+const uxB=5, uyB=5;    // Ball B velocity components (launches leftward)
+const x0A=0, x0B=9;    // Starting x positions
+
+// Relative velocity (A relative to B): dvx = uxA-(-uxB), dvy = uyA - uyB
+const dvx = uxA - (-uxB);   // = 9
+const dvy = uyA - uyB;       // = 7
+const rx0 = x0A - x0B;       // = -9
+const ry0 = 0;
+const dv2 = dvx*dvx + dvy*dvy;
+const T_MIN = -(rx0*dvx + ry0*dvy) / dv2;  // analytical min-sep time
+
+const REALDUR = 3200;   // ms for full animation to T_MIN
+const WXMIN=-1, WXMAX=10, WYMIN=0, WYMAX=8;
+
+const COL={A:'#2fa84f',B:'#2e6fdb',gold:'#ffcf33',navy:'#1b2348',red:'#d9483b'};
+
+let frame='ground', state='idle', startTs=0, simT=0;
+
+const cv=document.getElementById('scene'), ctx=cv.getContext('2d');
+let dpr=1, CW=0, CH=0, S=1, mX=0, gY=0;
+new ResizeObserver(()=>{
+  const r=cv.getBoundingClientRect();
+  dpr=window.devicePixelRatio||1; CW=r.width; CH=r.height;
+  cv.width=Math.round(CW*dpr); cv.height=Math.round(CH*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0); layout();
+}).observe(cv);
+
+function layout(){
+  const pad=16;
+  S=Math.min((CW-2*pad)/(WXMAX-WXMIN),(CH-2*pad)/(WYMAX-WYMIN));
+  const dW=(WXMAX-WXMIN)*S, dH=(WYMAX-WYMIN)*S;
+  mX=(CW-dW)/2; gY=(CH-dH)/2+dH;
+}
+const X=wx=>mX+(wx-WXMIN)*S;
+const Y=wy=>gY-wy*S;
+
+/* ---- physics ---- */
+function gPosA(t){return [x0A + uxA*t, uyA*t - 0.5*g*t*t];}
+function gPosB(t){return [x0B - uxB*t, uyB*t - 0.5*g*t*t];}
+function gVelA(t){return [uxA, uyA - g*t];}
+function gVelB(t){return [-uxB, uyB - g*t];}
+
+/* ---- drawing helpers ---- */
+function ball(x,y,col,letter,r){
+  r=r||9;
+  ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=col;ctx.fill();
+  ctx.lineWidth=2.2;ctx.strokeStyle='#fff';ctx.stroke();
+  if(letter){
+    ctx.fillStyle=COL.navy;ctx.font='bold 13px Trebuchet MS';
+    ctx.textAlign='center';ctx.fillText(letter,x,y-r-5);
+  }
+}
+function arrow(x1,y1,x2,y2,col,w){
+  const a=Math.atan2(y2-y1,x2-x1),h=8;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=w||3;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-h*Math.cos(a-0.4),y2-h*Math.sin(a-0.4));
+  ctx.lineTo(x2-h*Math.cos(a+0.4),y2-h*Math.sin(a+0.4));
+  ctx.closePath();ctx.fill();
+}
+
+/* ---- min-sep marker ---- */
+function minSepMarker(sx,sy,pa,pb,t){
+  const ax=sx(pa[0]), ay=sy(pa[1]);
+  const bx=sx(pb[0]), by=sy(pb[1]);
+  const dist=Math.hypot(pa[0]-pb[0], pa[1]-pb[1]);
+
+  // dashed line between balls
+  ctx.save();
+  ctx.strokeStyle='rgba(255,207,51,.95)';ctx.lineWidth=2.5;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+
+  // distance label — midpoint of line, offset perpendicular upward (away from ground)
+  const mx=(ax+bx)/2, my=(ay+by)/2;
+  const ldx=bx-ax, ldy=by-ay, llen=Math.hypot(ldx,ldy)||1;
+  let px=-ldy/llen, py=ldx/llen;
+  if(py>0){px=-px;py=-py;}  // flip so py is negative = upward in canvas coords
+  const off=20;
+  const lx=mx+px*off, ly=my+py*off;
+  ctx.fillStyle=COL.gold;ctx.strokeStyle=COL.navy;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(lx-28,ly-14,56,16,5);ctx.fill();ctx.stroke();
+  ctx.fillStyle=COL.navy;ctx.font='bold 10px Courier New';
+  ctx.textAlign='center';ctx.fillText(dist.toFixed(2)+' m',lx,ly-1);
+
+  // v_rel arrow from A's position
+  const va=gVelA(t), vb=gVelB(t);
+  const vrx=va[0]-vb[0], vry=va[1]-vb[1];
+  const vmag=Math.hypot(vrx,vry);
+  if(vmag>0.1){
+    const len=44;
+    const nx=vrx/vmag, ny=vry/vmag;
+    arrow(ax,ay, ax+nx*len, ay-ny*len, COL.red, 3);
+    ctx.fillStyle=COL.red;ctx.font='bold 10px Trebuchet MS';ctx.textAlign='left';
+    ctx.fillText('v_rel',ax+nx*len+5, ay-ny*len-3);
+  }
+}
+
+/* ---- main render ---- */
+function renderWorld(t){
+  let sx, sy, Sc=0.40*CW/9, aY=CH*0.42;
+  if(frame==='ground'){
+    sx=wx=>X(wx); sy=wy=>Y(wy);
+  }else{
+    const ride=(frame==='A'?gPosA:gPosB);
+    const R=ride(t);
+    sx=wx=>CW/2+(wx-R[0])*Sc;
+    sy=wy=>aY-(wy-R[1])*Sc;
+  }
+
+  // ground
+  const gl=sy(0), top=Math.max(gl,0);
+  if(gl<CH){ctx.fillStyle='#e9dcae';ctx.fillRect(0,top,CW,CH-top);}
+  if(gl>=0&&gl<=CH){
+    ctx.strokeStyle='#b9a96a';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(0,gl);ctx.lineTo(CW,gl);ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(150,135,80,.75)';ctx.lineWidth=2;
+  for(let wx=-4;wx<=16;wx++){
+    const x=sx(wx),y=sy(0);
+    if(x<-8||x>CW+8||y<0||y>CH)continue;
+    ctx.beginPath();ctx.moveTo(x,y+2);ctx.lineTo(x,Math.min(y+11,CH));ctx.stroke();
+  }
+
+  const pa=gPosA(t), pb=gPosB(t);
+  const aS=[sx(pa[0]),sy(pa[1])], bS=[sx(pb[0]),sy(pb[1])];
+
+  if(frame==='ground'){
+    // ground frame: draw both real parabolic trails
+    if(state!=='idle'){
+      const trail=(fn,col)=>{
+        ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();
+        for(let i=0;i<=60;i++){
+          const p=fn(t*i/60);
+          i?ctx.lineTo(sx(p[0]),sy(p[1])):ctx.moveTo(sx(p[0]),sy(p[1]));
+        }
+        ctx.stroke();
+      };
+      trail(gPosA,'rgba(47,168,79,.9)');
+      trail(gPosB,'rgba(46,111,219,.9)');
+    }
+  }else{
+    // relative frame: ridden ball is stationary at centre — NO trail for it.
+    // other ball moves in straight line (gravity cancels in relative frame).
+    const ride=(frame==='A'?gPosA:gPosB);
+    const move=(frame==='A'?gPosB:gPosA);
+    const otherCol=frame==='A'?'rgba(46,111,219,.9)':'rgba(47,168,79,.9)';
+    const fS=frame==='A'?aS:bS;
+    const mS=frame==='A'?bS:aS;
+    // relative position of moving ball wrt ridden ball, mapped to screen
+    const rel=tt=>{
+      const o=move(tt),r=ride(tt);
+      return [CW/2+(o[0]-r[0])*Sc, aY-(o[1]-r[1])*Sc];
+    };
+    if(state==='idle'){
+      // dotted line preview showing incoming straight path
+      ctx.setLineDash([7,6]);ctx.strokeStyle='rgba(27,35,72,.30)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(mS[0],mS[1]);ctx.lineTo(fS[0],fS[1]);ctx.stroke();
+      ctx.setLineDash([]);
+    }else{
+      // straight-line trail of moving ball in relative frame
+      ctx.strokeStyle=otherCol;ctx.lineWidth=3;ctx.beginPath();
+      for(let i=0;i<=60;i++){
+        const p=rel(t*i/60);
+        i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);
+      }
+      ctx.stroke();
+    }
+    // ring on ridden ball
+    ctx.beginPath();ctx.arc(fS[0],fS[1],15,0,7);
+    ctx.strokeStyle='rgba(27,35,72,.55)';ctx.lineWidth=2;ctx.stroke();
+  }
+
+  // min-sep marker when done
+  if(state==='done'){
+    minSepMarker(sx,sy,pa,pb,t);
+  }
+
+  ball(aS[0],aS[1],COL.A,'A',8);
+  ball(bS[0],bS[1],COL.B,'B',8);
+}
+
+/* ---- loop ---- */
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#eef5ff';ctx.fillRect(0,0,CW,CH);
+  renderWorld(simT);
+}
+function loop(now){
+  if(state==='playing'){
+    const el=(now-startTs)/REALDUR;
+    simT=Math.min(el,1)*T_MIN;
+    if(el>=1){
+      simT=T_MIN;
+      state='done';
+    }
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+
+/* ---- controls ---- */
+function reset(){
+  state='idle'; simT=0;
+  document.getElementById('play').textContent='▶';
+  document.getElementById('play').style.paddingLeft='4px';
+}
+document.getElementById('frames').addEventListener('click',e=>{
+  const b=e.target.closest('.fbtn');if(!b)return;
+  document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');frame=b.dataset.f;reset();
+});
+document.getElementById('play').addEventListener('click',()=>{
+  if(state==='done'){reset();return;}
+  state='playing';startTs=performance.now();
+});
+
+// polyfill roundRect
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();this.moveTo(x+r,y);
+    this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);
+    this.closePath();return this;
+  };
+}
+
+reset();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
