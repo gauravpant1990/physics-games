@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniform Circular Motion</title>
+<style>
+:root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--red:#d9483b;--blue:#2e6fdb}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+.wrap{width:min(94vw,360px)}
+
+.prob-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 11px;margin-bottom:7px}
+.prob-text{font-size:12px;color:var(--navy);line-height:1.5;font-weight:500}
+.prob-text b{font-weight:700}
+
+.scene-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  overflow:hidden;margin-bottom:7px}
+canvas{display:block;width:100%;height:auto}
+
+.slider-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 11px;margin-bottom:7px}
+.sl-row{display:flex;align-items:center;gap:8px}
+.sl-label{font-size:12px;font-weight:700;color:var(--navy);min-width:24px}
+.sl-val{font-size:12px;font-weight:700;color:var(--navy);
+  font-family:'Courier New',monospace;min-width:72px;text-align:right}
+input[type=range]{flex:1;-webkit-appearance:none;height:28px;
+  background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{
+  height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--navy);margin-top:1px;cursor:pointer;
+  box-shadow:0 2px 4px rgba(0,0,0,0.3)}
+input[type=range]::-moz-range-track{height:28px;border-radius:14px;
+  background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+  background:var(--navy);cursor:pointer}
+
+.readout-row{display:flex;gap:6px;margin-bottom:7px}
+.readout{flex:1;background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:8px 6px;text-align:center}
+.r-label{font-size:9.5px;font-weight:700;color:#888780;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:3px}
+.r-val{font-size:13px;font-weight:700;color:var(--navy);
+  font-family:'Courier New',monospace}
+.r-dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:4px;vertical-align:middle}
+
+.legend-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:9px 11px}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.leg-row:last-child{margin-bottom:0}
+.leg-line{width:24px;height:3px;border-radius:2px;flex-shrink:0}
+.leg-arrow{width:28px;height:13px;flex-shrink:0;display:flex;align-items:center}
+.leg-text{font-size:11.5px;color:var(--navy);font-weight:600}
+.leg-sub{font-size:10.5px;color:#888780;margin-left:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="prob-card">
+    <div class="prob-text">
+      A particle moves in <b>Uniform Circular Motion</b>. Radius is fixed.
+      Change <b>ω</b> and observe velocity and centripetal acceleration.
+    </div>
+  </div>
+
+  <div class="scene-card">
+    <canvas id="sc"></canvas>
+  </div>
+
+  <div class="readout-row">
+    <div class="readout">
+      <div class="r-label"><span class="r-dot" style="background:#2e6fdb"></span>Speed |v|</div>
+      <div class="r-val" id="rv">0.00 m/s</div>
+    </div>
+    <div class="readout">
+      <div class="r-label"><span class="r-dot" style="background:#d9483b"></span>|a<sub>c</sub>|</div>
+      <div class="r-val" id="ra">0.00 m/s²</div>
+    </div>
+  </div>
+
+  <div class="slider-card">
+    <div class="sl-row">
+      <div class="sl-label">ω</div>
+      <input type="range" id="slOmega" min="0.5" max="4" step="0.1" value="1.5">
+      <div class="sl-val" id="svOmega">1.5 rad/s</div>
+    </div>
+  </div>
+
+  <div class="legend-card">
+    <div class="leg-row">
+      <svg class="leg-arrow" viewBox="0 0 28 13" fill="none">
+        <line x1="2" y1="6.5" x2="21" y2="6.5" stroke="#2e6fdb" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="21,2.5 27,6.5 21,10.5" fill="#2e6fdb"/>
+      </svg>
+      <div class="leg-text">v <span class="leg-sub">(velocity, tangential)</span></div>
+    </div>
+    <div class="leg-row">
+      <svg class="leg-arrow" viewBox="0 0 28 13" fill="none">
+        <line x1="2" y1="6.5" x2="21" y2="6.5" stroke="#d9483b" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="21,2.5 27,6.5 21,10.5" fill="#d9483b"/>
+      </svg>
+      <div class="leg-text">a<sub>c</sub> <span class="leg-sub">(centripetal acceleration, inward)</span></div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="background:rgba(27,35,72,0.2);border-top:2px dashed rgba(27,35,72,0.35);height:0"></div>
+      <div class="leg-text leg-sub" style="color:#888780">Circular path (R = 3 m, fixed)</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('sc');
+const ctx    = canvas.getContext('2d');
+
+const R_M = 3;
+let W, H, CX, CY, PX;
+let omega = 1.5;
+let theta = 0;
+
+function fit(){
+  const wrap = document.querySelector('.wrap');
+  const vw = document.documentElement.clientWidth||360;
+  const vh = window.innerHeight||640;
+  let w = Math.min(vw*0.94, 360);
+  wrap.style.width = w+'px';
+  sizeCanvas(w);
+  let chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  const avail = vh - 16;
+  for(let i=0;i<2&&(chrome + w*ASPECT > avail);i++){
+    w = Math.min(Math.min(vw*0.94,360), Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width = w+'px';
+    sizeCanvas(w);
+    chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  }
+}
+
+const ASPECT = 0.82;
+function sizeCanvas(w){
+  W = w; H = Math.round(w * ASPECT);
+  const d = window.devicePixelRatio||1;
+  canvas.style.height = H+'px';
+  canvas.width  = Math.round(W*d);
+  canvas.height = Math.round(H*d);
+  ctx.setTransform(d,0,0,d,0,0);
+  CX = W/2; CY = H/2;
+  PX = (Math.min(W,H)*0.36)/R_M;
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  const r = R_M * PX;
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(27,35,72,.18)'; ctx.lineWidth=1.5;
+  ctx.setLineDash([6,5]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle='rgba(27,35,72,.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(CX-9,CY); ctx.lineTo(CX+9,CY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX,CY-9); ctx.lineTo(CX,CY+9); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,3,0,Math.PI*2);
+  ctx.fillStyle='rgba(27,35,72,.3)'; ctx.fill();
+  ctx.restore();
+
+  const px = CX + r*Math.cos(theta);
+  const py = CY + r*Math.sin(theta);
+
+  ctx.save();
+  ctx.strokeStyle='rgba(27,35,72,.1)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(px,py); ctx.stroke();
+  ctx.restore();
+
+  const v  = omega * R_M;
+  const ac = omega * omega * R_M;
+  const vtx = -Math.sin(theta), vty = Math.cos(theta);
+  const acx = -Math.cos(theta), acy = -Math.sin(theta);
+  const vLen  = Math.min(v*PX*0.5, r*0.9);
+  const acLen = Math.min(ac*PX*0.3, r*0.8);
+
+  drawArrow(px,py, px+acx*acLen, py+acy*acLen, '#d9483b', 2.8, 'ac');
+  drawArrow(px,py, px+vtx*vLen,  py+vty*vLen,  '#2e6fdb', 2.8, 'v');
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(px,py,8,0,Math.PI*2);
+  ctx.fillStyle='#1b2348'; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.restore();
+
+  document.getElementById('rv').textContent = v.toFixed(2)+' m/s';
+  document.getElementById('ra').textContent = ac.toFixed(2)+' m/s²';
+}
+
+function drawArrow(x1,y1,x2,y2,col,lw,label){
+  const dx=x2-x1,dy=y2-y1,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<5) return;
+  const ux=dx/d,uy=dy/d,hw=5.5,hl=11;
+  ctx.save();
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hl*0.5,y2-uy*hl*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.translate(x2,y2); ctx.rotate(Math.atan2(dy,dx));
+  ctx.moveTo(0,0); ctx.lineTo(-hl,hw); ctx.lineTo(-hl,-hw); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if(label){
+    const mx=(x1+x2)/2, my=(y1+y2)/2, nx=-uy*15, ny=ux*15;
+    const lx = mx+nx, ly = my+ny;
+    ctx.save();
+    ctx.textBaseline='middle';
+    if(label==='ac'){
+      // draw 'a' normal + 'c' subscript manually
+      ctx.font='bold 13px Trebuchet MS,sans-serif';
+      const aw=ctx.measureText('a').width;
+      ctx.font='bold 9px Trebuchet MS,sans-serif';
+      const cw=ctx.measureText('c').width;
+      const total=aw+cw+1;
+      ctx.fillStyle='rgba(255,255,255,.88)';
+      ctx.fillRect(lx-total/2-3, ly-9, total+6, 18);
+      ctx.fillStyle=col;
+      ctx.font='bold 13px Trebuchet MS,sans-serif';
+      ctx.textAlign='left';
+      ctx.fillText('a', lx-total/2, ly);
+      ctx.font='bold 9px Trebuchet MS,sans-serif';
+      ctx.fillText('c', lx-total/2+aw+1, ly+3);
+    } else {
+      ctx.font='bold 12px Trebuchet MS,sans-serif';
+      ctx.textAlign='center';
+      const tw=ctx.measureText(label).width;
+      ctx.fillStyle='rgba(255,255,255,.88)';
+      ctx.fillRect(lx-tw/2-3,ly-8,tw+6,16);
+      ctx.fillStyle=col; ctx.fillText(label,lx,ly);
+    }
+    ctx.restore();
+  }
+}
+
+const DT = 1/60;
+function loop(){
+  theta += omega*DT;
+  if(theta>Math.PI*2) theta-=Math.PI*2;
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('slOmega').addEventListener('input',e=>{
+  omega = parseFloat(e.target.value);
+  document.getElementById('svOmega').textContent = omega.toFixed(1)+' rad/s';
+});
+
+window.addEventListener('resize',fit);
+fit();
+loop();
+</script>
+</body>
+</html>

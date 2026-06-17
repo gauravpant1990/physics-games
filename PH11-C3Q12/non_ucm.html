@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Non-Uniform Circular Motion</title>
+<style>
+:root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--red:#d9483b;--blue:#2e6fdb;--orange:#e88b00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+.wrap{width:min(94vw,360px)}
+
+/* problem card */
+.prob-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:11px 14px;margin-bottom:8px}
+.prob-text{font-size:12.5px;color:var(--navy);line-height:1.55;font-weight:500}
+.prob-text b{font-weight:700}
+
+/* scene */
+.scene-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  overflow:hidden;margin-bottom:8px}
+canvas{display:block;width:100%;height:auto}
+
+/* slider card */
+.slider-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:11px 14px;margin-bottom:8px}
+.sl-row{display:flex;align-items:center;gap:10px}
+.sl-label{font-size:12px;font-weight:700;color:var(--navy);min-width:28px}
+.sl-val{font-size:13px;font-weight:700;color:var(--navy);
+  font-family:'Courier New',monospace;min-width:90px;text-align:right}
+input[type=range]{flex:1;-webkit-appearance:none;height:28px;
+  background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{
+  height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--navy);margin-top:1px;cursor:pointer;
+  box-shadow:0 2px 4px rgba(0,0,0,0.3)}
+input[type=range]::-moz-range-track{height:28px;border-radius:14px;
+  background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+  background:var(--navy);cursor:pointer}
+
+/* readout row */
+.readout-row{display:flex;gap:7px;margin-bottom:8px}
+.readout{flex:1;background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:9px 6px;text-align:center}
+.r-label{font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:3px}
+.r-val{font-size:13px;font-weight:700;color:var(--navy);
+  font-family:'Courier New',monospace}
+.r-dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:4px;vertical-align:middle}
+
+/* legend */
+.legend-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 14px}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.leg-row:last-child{margin-bottom:0}
+.leg-line{width:24px;height:3px;border-radius:2px;flex-shrink:0}
+.leg-text{font-size:11.5px;color:var(--navy);font-weight:600}
+.leg-sub{font-size:10.5px;color:#888780;margin-left:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="prob-card">
+    <div class="prob-text">
+      A particle moves in <b>Non-Uniform Circular Motion</b>. Radius is fixed.
+      Change <b>α</b> (angular acceleration) and observe <b>at</b>, <b>ac</b> and total <b>a</b>.
+    </div>
+  </div>
+
+  <div class="scene-card">
+    <canvas id="sc"></canvas>
+  </div>
+
+  <div class="legend-card">
+    <div class="leg-row">
+      <div class="leg-line" style="background:#2e6fdb"></div>
+      <div class="leg-text">a<sub>c</sub> <span class="leg-sub">(centripetal, inward)</span></div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="background:#d9483b"></div>
+      <div class="leg-text">a<sub>t</sub> <span class="leg-sub">(tangential, along path)</span></div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="background:#e88b00"></div>
+      <div class="leg-text">a <span class="leg-sub">(total = vector sum of a<sub>c</sub> and a<sub>t</sub>)</span></div>
+    </div>
+  </div>
+
+  <div class="slider-card">
+    <div class="sl-row">
+      <div class="sl-label">α</div>
+      <input type="range" id="slAlpha" min="0.5" max="5" step="0.1" value="2">
+      <div class="sl-val" id="svAlpha">2.0 rad/s²</div>
+    </div>
+  </div>
+
+  <div class="readout-row">
+    <div class="readout">
+      <div class="r-label" style="color:#2e6fdb"><span class="r-dot" style="background:#2e6fdb"></span>ac</div>
+      <div class="r-val" id="rac">—</div>
+    </div>
+    <div class="readout">
+      <div class="r-label" style="color:#d9483b"><span class="r-dot" style="background:#d9483b"></span>at</div>
+      <div class="r-val" id="rat">—</div>
+    </div>
+    <div class="readout">
+      <div class="r-label" style="color:#e88b00"><span class="r-dot" style="background:#e88b00"></span>|a| total</div>
+      <div class="r-val" id="ra">—</div>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+const canvas = document.getElementById('sc');
+const ctx    = canvas.getContext('2d');
+
+const R_M = 3;        // fixed radius (metres)
+let alpha = 2.0;      // angular acceleration (rad/s²)
+let omega = 0;        // current angular velocity
+let theta = Math.PI / 6; // starting angle
+let animId;
+
+const DT = 1/180;
+
+const ASPECT = 0.72;
+let W, H;
+
+function sizeCanvas(w){
+  W = w; H = Math.round(w * ASPECT);
+  const d = window.devicePixelRatio||1;
+  canvas.style.height = H+'px';
+  canvas.width  = Math.round(W*d);
+  canvas.height = Math.round(H*d);
+  ctx.setTransform(d,0,0,d,0,0);
+}
+
+function fit(){
+  const wrap = document.querySelector('.wrap');
+  const vw = document.documentElement.clientWidth||360;
+  const vh = window.innerHeight||640;
+  let w = Math.min(vw*0.94, 360);
+  wrap.style.width = w+'px';
+  sizeCanvas(w);
+  let chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  const avail = vh - 16;
+  for(let i=0;i<2&&(chrome + w*ASPECT > avail);i++){
+    w = Math.min(Math.min(vw*0.94,360), Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width = w+'px';
+    sizeCanvas(w);
+    chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  }
+}
+
+function px(){ return (Math.min(W, H) * 0.34) / R_M; }
+function CX(){ return W / 2; }
+function CY(){ return H / 2; }
+
+// ── draw ──────────────────────────────────────────────────────────────
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0,0,W,H);
+
+  const PX = px(), r = R_M * PX;
+  const cx = CX(), cy = CY();
+
+  // orbit dashed
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(27,35,72,.15)';
+  ctx.lineWidth   = 1.5;
+  ctx.setLineDash([6,5]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+
+  // centre
+  ctx.save();
+  ctx.strokeStyle = 'rgba(27,35,72,.18)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx-9,cy); ctx.lineTo(cx+9,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy-9); ctx.lineTo(cx,cy+9); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+  ctx.fillStyle='rgba(27,35,72,.25)'; ctx.fill();
+  ctx.restore();
+
+  // particle
+  const px2 = cx + r * Math.cos(theta);
+  const py2 = cy + r * Math.sin(theta);
+
+  // faint radius line
+  ctx.save();
+  ctx.strokeStyle='rgba(27,35,72,.1)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px2,py2); ctx.stroke();
+  ctx.restore();
+
+  // physics (per-frame already accumulated in omega)
+  const at = alpha * R_M;           // tangential accel magnitude m/s²
+  const ac = omega * omega * R_M;   // centripetal accel magnitude m/s²
+  const aTotal = Math.sqrt(at*at + ac*ac);
+
+  // direction vectors (CCW rotation)
+  const tangX = -Math.sin(theta);  // CCW tangential direction
+  const tangY =  Math.cos(theta);
+  const inX   = -Math.cos(theta);  // inward radial direction
+  const inY   = -Math.sin(theta);
+
+  // scale arrow lengths (cap at 90% of radius)
+  const maxLen = r * 0.88;
+  const scale  = PX * 0.42;
+  const atLen  = Math.min(at * scale, maxLen);
+  const acLen  = Math.min(ac * scale, maxLen);
+  const aLen   = Math.min(aTotal * scale, maxLen);
+
+  // total acceleration direction
+  const totalX = inX * ac + tangX * at;
+  const totalY = inY * ac + tangY * at;
+  const totalD = Math.sqrt(totalX*totalX + totalY*totalY);
+  const tux = totalD > 0.001 ? totalX/totalD : 0;
+  const tuy = totalD > 0.001 ? totalY/totalD : 0;
+
+  // tip positions
+  const acTipX = px2 + inX*acLen,   acTipY = py2 + inY*acLen;
+  const atTipX = px2 + tangX*atLen, atTipY = py2 + tangY*atLen;
+
+  // draw ac (blue, inward) — from particle
+  if(acLen > 4)
+    drawArrow(px2, py2, acTipX, acTipY, '#2e6fdb', 2.5, null);
+  // draw at (red, tangential) — from particle
+  if(atLen > 4)
+    drawArrow(px2, py2, atTipX, atTipY, '#d9483b', 2.5, null);
+  // draw total a (orange) — from particle
+  if(aLen > 4)
+    drawArrow(px2, py2, px2 + tux*aLen, py2 + tuy*aLen, '#e88b00', 2.5, null);
+
+  // particle dot
+  ctx.save();
+  ctx.beginPath(); ctx.arc(px2, py2, 8, 0, Math.PI*2);
+  ctx.fillStyle='#1b2348'; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.restore();
+
+  // readouts
+  document.getElementById('rac').textContent = ac.toFixed(2) + ' m/s²';
+  document.getElementById('rat').textContent = at.toFixed(2) + ' m/s²';
+  document.getElementById('ra').textContent  = aTotal.toFixed(2) + ' m/s²';
+}
+
+function drawArrow(x1,y1,x2,y2,col,lw,label){
+  const dx=x2-x1, dy=y2-y1, d=Math.sqrt(dx*dx+dy*dy);
+  if(d<5) return;
+  const ux=dx/d, uy=dy/d, hw=5.5, hl=11;
+
+  ctx.save();
+  ctx.strokeStyle=col; ctx.fillStyle=col;
+  ctx.lineWidth=lw; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2-ux*hl*0.5, y2-uy*hl*0.5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.translate(x2,y2); ctx.rotate(Math.atan2(dy,dx));
+  ctx.moveTo(0,0); ctx.lineTo(-hl,hw); ctx.lineTo(-hl,-hw);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  if(label){
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const nx=-uy*16, ny=ux*16;
+    ctx.save();
+    ctx.font='bold 12px Trebuchet MS,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw=ctx.measureText(label).width;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.fillRect(mx+nx-tw/2-3, my+ny-8, tw+6, 16);
+    ctx.fillStyle=col;
+    ctx.fillText(label, mx+nx, my+ny);
+    ctx.restore();
+  }
+}
+
+// ── animation loop ────────────────────────────────────────────────────
+function loop(){
+  omega += alpha * DT;
+  theta += omega  * DT;
+  if(theta > Math.PI*2){
+    theta -= Math.PI*2;
+    omega = 0;           // reset each revolution — shows one clean cycle
+  }
+
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+// ── slider ────────────────────────────────────────────────────────────
+document.getElementById('slAlpha').addEventListener('input', e => {
+  alpha = parseFloat(e.target.value);
+  document.getElementById('svAlpha').textContent = alpha.toFixed(1) + ' rad/s²';
+  // reset omega so students see the effect from similar speed each time
+  omega = 0.3;
+});
+
+window.addEventListener('resize', fit);
+fit();
+loop();
+</script>
+</body>
+</html>
