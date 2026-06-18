@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulley: Rope and Weight</title>
+<style>
+:root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--red:#d9483b;--blue:#2e6fdb;--orange:#e88b00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+.wrap{width:min(94vw,360px)}
+.card{background:#fff;border-radius:12px;border:2px solid var(--navy);overflow:hidden;margin-bottom:7px}
+.card.pad{padding:10px 11px}
+canvas{display:block;width:100%;height:auto}
+.head{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.sub{font-size:11.5px;color:#5a6080;font-weight:500;line-height:1.45}
+.seg{font-size:10px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.chips{display:flex;gap:6px}
+.chip{flex:1;background:#fff;border-radius:8px;border:2px solid var(--navy);padding:7px 4px;text-align:center}
+.chip-lbl{font-size:9px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.chip-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.chip-val{font-size:12px;font-weight:700;color:var(--navy);font-family:'Courier New',monospace}
+.sl-row{display:flex;align-items:center;gap:8px}
+.sl-lbl{font-size:11.5px;font-weight:700;color:var(--navy);min-width:56px}
+.sl-val{font-size:11.5px;font-weight:700;color:var(--navy);font-family:'Courier New',monospace;min-width:52px;text-align:right}
+input[type=range]{flex:1;-webkit-appearance:none;height:28px;background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--navy);margin-top:1px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+input[type=range]::-moz-range-track{height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--navy);cursor:pointer}
+.cap{font-size:11px;font-weight:500;color:var(--navy);line-height:1.35;padding:7px 11px;min-height:28px}
+.cap b{font-weight:700}
+footer{margin-top:6px;text-align:center;font-size:10px;color:#888780;padding-top:7px;border-top:.5px solid rgba(0,0,0,.1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Pulley System: Forces on the Person</div>
+    <div class="sub">A person holds a rope over a fixed pulley. A weight hangs on the other side. Drag the slider to change the hanging weight and observe the force arrows change.</div>
+  </div>
+
+  <div class="card"><canvas id="sc"></canvas>
+    <div class="cap" id="cap">Adjust the slider to change the hanging weight.</div>
+  </div>
+
+  <div class="card pad">
+    <div class="seg" style="margin-bottom:7px">Live values</div>
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#e88b00"></span>Tension T</div>
+        <div class="chip-val" id="vT">0 N</div>
+      </div>
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#2fa84f"></span>Normal N</div>
+        <div class="chip-val" id="vN">0 N</div>
+      </div>
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#1b2348"></span>Weight W</div>
+        <div class="chip-val" id="vW">510 N</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <div class="sl-row">
+      <div class="sl-lbl">Hanging weight</div>
+      <input type="range" id="sl" min="0" max="700" step="10" value="200">
+      <div class="sl-val" id="svSl">200 N</div>
+    </div>
+  </div>
+
+  <footer>Laws of Motion · Free Body Diagram · Ch 4</footer>
+</div>
+<script>
+const sc=document.getElementById('sc'), sx=sc.getContext('2d');
+const W_P=52*9.8; // person weight ~510N
+let hangW=200, ww, wh;
+const ASPECT=0.78;
+
+function sizeCanvas(w){
+  ww=w; wh=Math.round(w*ASPECT);
+  const d=window.devicePixelRatio||1;
+  sc.style.height=wh+'px';
+  sc.width=Math.round(ww*d); sc.height=Math.round(wh*d);
+  sx.setTransform(d,0,0,d,0,0);
+}
+function fit(){
+  const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  let w=Math.min(vw*0.94,360); wrap.style.width=w+'px'; sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(sc.style.height||0);
+  const avail=vh-20;
+  for(let i=0;i<2&&chrome+w*ASPECT>avail;i++){
+    w=Math.min(Math.min(vw*0.94,360),Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px'; sizeCanvas(w);
+    chrome=wrap.offsetHeight-parseFloat(sc.style.height||0);
+  }
+}
+
+function arrow(x1,y1,x2,y2,col,lw){
+  const dx=x2-x1,dy=y2-y1,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<4)return;
+  const ux=dx/d,uy=dy/d,hw=5.5,hl=10;
+  sx.save();
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=lw;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x1,y1);sx.lineTo(x2-ux*hl*.55,y2-uy*hl*.55);sx.stroke();
+  sx.beginPath();sx.translate(x2,y2);sx.rotate(Math.atan2(dy,dx));
+  sx.moveTo(0,0);sx.lineTo(-hl,hw);sx.lineTo(-hl,-hw);sx.closePath();sx.fill();
+  sx.restore();
+}
+function label(txt,x,y,col,align){
+  sx.save();
+  sx.font=`bold ${Math.round(ww*0.032)}px Trebuchet MS,sans-serif`;
+  sx.textAlign=align||'center';sx.textBaseline='middle';
+  sx.lineWidth=3.5;sx.strokeStyle='rgba(255,255,255,.94)';sx.strokeText(txt,x,y);
+  sx.fillStyle=col;sx.fillText(txt,x,y);
+  sx.restore();
+}
+
+function draw(){
+  sx.clearRect(0,0,ww,wh);
+
+  const liftoff = hangW >= W_P;
+  const N = Math.max(0, W_P - hangW);
+  const T = hangW;
+
+  // background
+  const bg=sx.createLinearGradient(0,0,0,wh);
+  bg.addColorStop(0,'#eef2f6');bg.addColorStop(1,'#e8e2d8');
+  sx.fillStyle=bg;sx.fillRect(0,0,ww,wh);
+
+  // ceiling
+  sx.fillStyle='#c8c0b0';sx.fillRect(0,0,ww,wh*0.06);
+  for(let i=0;i<12;i++){sx.strokeStyle='#b0a890';sx.lineWidth=1;sx.beginPath();sx.moveTo(i*(ww/11),wh*0.06);sx.lineTo(i*(ww/11)+10,wh*0.01);sx.stroke();}
+
+  // floor — always fixed
+  sx.fillStyle='#c8b98a';sx.fillRect(0,wh*0.88,ww,wh);
+  sx.strokeStyle='#a09060';sx.lineWidth=1.5;sx.beginPath();sx.moveTo(0,wh*0.88);sx.lineTo(ww,wh*0.88);sx.stroke();
+  for(let i=0;i<10;i++){sx.beginPath();sx.moveTo(i*(ww/9),wh*0.88);sx.lineTo(i*(ww/9)-10,wh*0.93);sx.strokeStyle='#a09060';sx.lineWidth=1;sx.stroke();}
+
+  const pY=wh*0.13;  // pulley vertical position
+
+  // ── Layout: pulley centred, person left, weight right ──
+  // Pulley is centred at top. Left rope goes straight down to person's hand.
+  // Right rope goes straight down to hanging weight.
+
+  // person dimensions (stick figure)
+  const persX=ww*0.28;
+  // liftDelta: person rises, weight descends by same amount
+  const excess = Math.max(0, hangW - W_P);
+  const liftDelta = Math.min(excess * wh * 0.00028, wh * 0.12);
+  const persFloor = wh*0.88 - liftDelta;   // feet rise up
+  const headR = wh*0.055;
+  const torsoH = wh*0.16;
+  const headY = persFloor - torsoH - headR*2;
+  const shoulderY = headY + headR*2;
+  const hipY = shoulderY + torsoH;
+
+  // shadow when liftoff
+  if(liftoff){
+    sx.save();sx.fillStyle='rgba(0,0,0,0.1)';
+    sx.beginPath();sx.ellipse(persX,wh*0.88,ww*0.07,wh*0.013,0,0,Math.PI*2);sx.fill();    sx.restore();
+  }
+
+  // ── Stick figure ──
+  const figCol = liftoff ? '#c04030' : '#2e5fa3';
+  sx.save();
+  sx.strokeStyle=figCol; sx.lineWidth=Math.round(ww*0.022); sx.lineCap='round'; sx.lineJoin='round';
+
+  // head
+  sx.beginPath();sx.arc(persX,headY+headR,headR,0,Math.PI*2);
+  sx.fillStyle='#e8c49a';sx.fill();sx.strokeStyle='#5a3a1a';sx.lineWidth=1.5;sx.stroke();
+
+  // torso
+  sx.strokeStyle=figCol;sx.lineWidth=Math.round(ww*0.022);
+  sx.beginPath();sx.moveTo(persX,shoulderY);sx.lineTo(persX,hipY);sx.stroke();
+
+  // right arm raised (holding rope) — arm goes UP to hand
+  const handX=persX+ww*0.06, handY=shoulderY-wh*0.04;
+  sx.beginPath();sx.moveTo(persX,shoulderY);sx.lineTo(handX,handY);sx.stroke();
+
+  // left arm down
+  sx.beginPath();sx.moveTo(persX,shoulderY);sx.lineTo(persX-ww*0.06,shoulderY+wh*0.06);sx.stroke();
+
+  // legs
+  sx.beginPath();sx.moveTo(persX,hipY);sx.lineTo(persX-ww*0.04,persFloor);sx.stroke();
+  sx.beginPath();sx.moveTo(persX,hipY);sx.lineTo(persX+ww*0.03,persFloor);sx.stroke();
+  sx.restore();
+
+  // ── Pulley: centred above the scene ──
+  // Move pulley to be centred between person and weight
+  const ropeX_left  = handX;
+  const pR = ww*0.05;
+  // Pulley centred so its LEFT edge aligns with person's hand, RIGHT edge with weight
+  const pulleyCX    = ropeX_left + pR;   // left edge = handX
+  const ropeX_right = pulleyCX + pR;     // right edge = weight x
+
+  // Redraw pulley at new centre
+  sx.save();
+  sx.beginPath();sx.arc(pulleyCX,pY,pR,0,Math.PI*2);
+  sx.fillStyle='#6a6055';sx.fill();
+  sx.strokeStyle=liftoff?'#d9483b':'#1b2348';sx.lineWidth=2.5;sx.stroke();
+  sx.beginPath();sx.arc(pulleyCX,pY,pR*0.48,0,Math.PI*2);
+  sx.fillStyle='#bbb0a0';sx.fill();sx.strokeStyle='#888070';sx.lineWidth=1.5;sx.stroke();
+  // mount
+  sx.fillStyle='#b8b0a0';sx.fillRect(pulleyCX-ww*0.022,0,ww*0.044,pY-pR);
+  sx.strokeStyle='#1b2348';sx.lineWidth=1;sx.strokeRect(pulleyCX-ww*0.022,0,ww*0.044,pY-pR);
+  sx.restore();
+
+  // ── Two VERTICAL parallel ropes at left and right edges of pulley ──
+  const ropeTop = pY + pR;   // bottom of pulley circle
+
+  sx.save();sx.strokeStyle='#5a4030';sx.lineWidth=2.5;sx.lineCap='round';
+  // left rope (person side) — from hand up to left edge of pulley
+  sx.beginPath();sx.moveTo(ropeX_left, handY);sx.lineTo(ropeX_left, ropeTop);sx.stroke();
+  // right rope (weight side) — from right edge of pulley down to weight
+  const weightX = ropeX_right;
+  const weightY = wh*0.35 + liftDelta;   // weight descends as person rises
+  sx.beginPath();sx.moveTo(ropeX_right, ropeTop);sx.lineTo(ropeX_right, weightY);sx.stroke();
+  sx.restore();
+
+  // ── Hanging weight box ──
+  const wboxW=ww*0.13, wboxH=wh*0.1;
+  sx.fillStyle='#4a5a7a';sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();
+  sx.roundRect?sx.roundRect(weightX-wboxW/2,weightY,wboxW,wboxH,3):sx.rect(weightX-wboxW/2,weightY,wboxW,wboxH);
+  sx.fill();sx.stroke();
+  sx.save();sx.font=`bold ${Math.round(ww*0.028)}px Trebuchet MS,sans-serif`;
+  sx.fillStyle='#fff';sx.textAlign='center';sx.textBaseline='middle';
+  sx.fillText(`${hangW}N`,weightX,weightY+wboxH/2);sx.restore();
+
+  // FORCE ARROWS on person
+  const cx=persX, cy=(shoulderY+hipY)/2;
+  const sc2=wh*0.0013;
+
+  // Weight arrow (navy, downward from torso centre)
+  const wLen=Math.min(W_P*sc2,wh*0.22);
+  arrow(cx,cy,cx,cy+wLen,'#1b2348',3);
+  label(`W=${W_P.toFixed(0)}N`,cx+28,cy+wLen*0.55,'#1b2348','left');
+
+  // Normal arrow (green, upward from feet)
+  if(N>0){
+    const nLen=Math.min(N*sc2,wh*0.22);
+    arrow(cx-10,persFloor,cx-10,persFloor-nLen,'#2fa84f',3);
+    label(`N=${N.toFixed(0)}N`,cx-38,persFloor-nLen*0.55,'#2fa84f','right');
+  }
+
+  // Tension arrow (orange, upward from hand)
+  if(T>0){
+    const tLen=Math.min(T*sc2,wh*0.18);
+    arrow(handX+5,handY,handX+5,handY-tLen,'#e88b00',3);
+    label(`T=${T.toFixed(0)}N`,handX+32,handY-tLen*0.55,'#e88b00','left');
+  }
+
+  // readouts
+  document.getElementById('vT').textContent=T.toFixed(0)+' N';
+  document.getElementById('vN').textContent=N.toFixed(0)+' N';
+
+  // caption
+  const cap=document.getElementById('cap');
+  if(liftoff) cap.innerHTML='<b>T &gt; W!</b> Tension exceeds person\'s weight. Person lifts off the ground.';
+  else if(T===0) cap.innerHTML='No hanging weight. Normal force equals full body weight.';
+  else cap.innerHTML=`T = ${T.toFixed(0)} N &nbsp;|&nbsp; N = ${N.toFixed(0)} N &nbsp;|&nbsp; Equilibrium: N + T = W`;
+}
+
+document.getElementById('sl').addEventListener('input',e=>{
+  hangW=parseInt(e.target.value);
+  document.getElementById('svSl').textContent=hangW+' N';
+  draw();
+});
+window.addEventListener('resize',()=>{fit();draw();});
+fit();draw();
+</script>
+</body>
+</html>

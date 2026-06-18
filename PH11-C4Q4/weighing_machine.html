@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weighing Machine: Normal Reaction</title>
+<style>
+:root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--red:#d9483b;--blue:#2e6fdb;--orange:#e88b00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+.wrap{width:min(94vw,360px)}
+.card{background:#fff;border-radius:12px;border:2px solid var(--navy);overflow:hidden;margin-bottom:7px}
+.card.pad{padding:10px 11px}
+canvas{display:block;width:100%;height:auto}
+.head{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.sub{font-size:11.5px;color:#5a6080;font-weight:500;line-height:1.45}
+.chips{display:flex;gap:6px}
+.chip{flex:1;background:#fff;border-radius:8px;border:2px solid var(--navy);padding:7px 4px;text-align:center}
+.chip-lbl{font-size:9px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.chip-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.chip-val{font-size:12px;font-weight:700;color:var(--navy);font-family:'Courier New',monospace}
+.seg{font-size:10px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.sl-row{display:flex;align-items:center;gap:8px}
+.sl-lbl{font-size:11.5px;font-weight:700;color:var(--navy);min-width:68px}
+.sl-val{font-size:11.5px;font-weight:700;color:var(--navy);font-family:'Courier New',monospace;min-width:48px;text-align:right}
+input[type=range]{flex:1;-webkit-appearance:none;height:28px;background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--navy);margin-top:1px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+input[type=range]::-moz-range-track{height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--navy);cursor:pointer}
+.cap{font-size:11px;font-weight:500;color:var(--navy);line-height:1.35;padding:7px 11px;min-height:28px}
+.cap b{font-weight:700}
+footer{margin-top:6px;text-align:center;font-size:10px;color:#888780;padding-top:7px;border-top:.5px solid rgba(0,0,0,.1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Weighing Machine: Normal Reaction</div>
+    <div class="sub">A weighing machine measures Normal reaction, not weight. Apply an upward force and watch the reading drop.</div>
+  </div>
+
+  <div class="card"><canvas id="sc"></canvas>
+    <div class="cap" id="cap">Apply an upward force with the slider.</div>
+  </div>
+
+  <div class="card pad">
+    <div class="seg">Live values</div>
+    <div class="chips">
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#1b2348"></span>Weight W</div>
+        <div class="chip-val" id="vW">392 N</div>
+      </div>
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#e88b00"></span>Applied F</div>
+        <div class="chip-val" id="vF">0 N</div>
+      </div>
+      <div class="chip">
+        <div class="chip-lbl"><span class="chip-dot" style="background:#2fa84f"></span>Reading N</div>
+        <div class="chip-val" id="vN">40.0 kg</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <div class="sl-row">
+      <div class="sl-lbl">Applied F ↓</div>
+      <input type="range" id="sl" min="0" max="390" step="10" value="0">
+      <div class="sl-val" id="svSl">0 N</div>
+    </div>
+  </div>
+
+  <div class="card pad" style="background:#fffbe8;border-color:#e88b00">
+    <div style="font-size:11.5px;color:#1b2348;font-weight:500;line-height:1.5">
+      Machine reads <b>N = W + F</b>. As you push down, the reading increases. The machine never measures weight directly, only the <b>contact force</b>.
+    </div>
+  </div>
+
+  <footer>Laws of Motion · Normal Reaction · Ch 4</footer>
+</div>
+<script>
+const sc=document.getElementById('sc'), sx=sc.getContext('2d');
+const M=40, G=9.8, WL=M*G; // 40 kg load, 392 N
+let appliedF=0, ww, wh;
+const ASPECT=0.7;
+
+function sizeCanvas(w){
+  ww=w; wh=Math.round(w*ASPECT);
+  const d=window.devicePixelRatio||1;
+  sc.style.height=wh+'px';
+  sc.width=Math.round(ww*d); sc.height=Math.round(wh*d);
+  sx.setTransform(d,0,0,d,0,0);
+}
+function fit(){
+  const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  let w=Math.min(vw*0.94,360); wrap.style.width=w+'px'; sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(sc.style.height||0);
+  const avail=vh-20;
+  for(let i=0;i<2&&chrome+w*ASPECT>avail;i++){
+    w=Math.min(Math.min(vw*0.94,360),Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px'; sizeCanvas(w);
+    chrome=wrap.offsetHeight-parseFloat(sc.style.height||0);
+  }
+}
+
+function arrow(x1,y1,x2,y2,col,lw){
+  const dx=x2-x1,dy=y2-y1,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<4)return;
+  const ux=dx/d,uy=dy/d,hw=5.5,hl=10;
+  sx.save();
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=lw;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x1,y1);sx.lineTo(x2-ux*hl*.55,y2-uy*hl*.55);sx.stroke();
+  sx.beginPath();sx.translate(x2,y2);sx.rotate(Math.atan2(dy,dx));
+  sx.moveTo(0,0);sx.lineTo(-hl,hw);sx.lineTo(-hl,-hw);sx.closePath();sx.fill();
+  sx.restore();
+}
+function lbl(txt,x,y,col,align){
+  sx.save();
+  sx.font=`bold ${Math.round(ww*0.03)}px Trebuchet MS,sans-serif`;
+  sx.textAlign=align||'center';sx.textBaseline='middle';
+  sx.lineWidth=3.5;sx.strokeStyle='rgba(255,255,255,.95)';sx.strokeText(txt,x,y);
+  sx.fillStyle=col;sx.fillText(txt,x,y);
+  sx.restore();
+}
+
+function draw(){
+  sx.clearRect(0,0,ww,wh);
+  const N=WL+appliedF;   // F pushes down, so N = W + F
+
+  // bg
+  const bg=sx.createLinearGradient(0,0,0,wh);
+  bg.addColorStop(0,'#eef2f6');bg.addColorStop(1,'#e8e2d8');
+  sx.fillStyle=bg;sx.fillRect(0,0,ww,wh);
+
+  // floor
+  const floorY=wh*0.9;
+  sx.fillStyle='#c8b98a';sx.fillRect(0,floorY,ww,wh);
+  sx.strokeStyle='#a09060';sx.lineWidth=1.5;sx.beginPath();sx.moveTo(0,floorY);sx.lineTo(ww,floorY);sx.stroke();
+  for(let i=0;i<10;i++){sx.strokeStyle='#a09060';sx.lineWidth=1;sx.beginPath();sx.moveTo(i*(ww/9),floorY);sx.lineTo(i*(ww/9)-10,floorY+wh*0.05);sx.stroke();}
+
+  // weighing machine body
+  const machX=ww*0.28, machY=floorY-wh*0.14, machW=ww*0.44, machH=wh*0.14;
+  sx.fillStyle='#8a8880';sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();
+  sx.roundRect?sx.roundRect(machX,machY,machW,machH,5):sx.rect(machX,machY,machW,machH);
+  sx.fill();sx.stroke();
+
+  // machine display (navy box showing reading in kg)
+  const dispX=machX+machW*0.15, dispY=machY+machH*0.12, dispW=machW*0.7, dispH=machH*0.55;
+  sx.fillStyle='#1b2348';
+  sx.beginPath();
+  sx.roundRect?sx.roundRect(dispX,dispY,dispW,dispH,3):sx.rect(dispX,dispY,dispW,dispH);
+  sx.fill();
+  // reading
+  const reading=(N/G).toFixed(1);
+  sx.save();sx.font=`bold ${Math.round(ww*0.045)}px 'Courier New',monospace`;
+  sx.fillStyle='#ffcf33';sx.textAlign='center';sx.textBaseline='middle';
+  sx.fillText(reading+' kg',dispX+dispW/2,dispY+dispH/2);sx.restore();
+
+  // platform on top of machine
+  const platY=machY-wh*0.025;
+  sx.fillStyle='#9a9890';sx.strokeStyle='#1b2348';sx.lineWidth=1.5;
+  sx.fillRect(machX+machW*0.05,platY,machW*0.9,wh*0.025);
+  sx.strokeRect(machX+machW*0.05,platY,machW*0.9,wh*0.025);
+
+  // load block on platform
+  const bW=ww*0.22, bH=wh*0.16;
+  const bX=ww/2-bW/2, bY=platY-bH;
+  sx.fillStyle='#4a5a7a';sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();
+  sx.roundRect?sx.roundRect(bX,bY,bW,bH,4):sx.rect(bX,bY,bW,bH);
+  sx.fill();sx.stroke();
+  sx.save();sx.font=`bold ${Math.round(ww*0.03)}px Trebuchet MS,sans-serif`;
+  sx.fillStyle='#fff';sx.textAlign='center';sx.textBaseline='middle';
+  sx.fillText(`${M} kg`,ww/2,bY+bH/2);sx.restore();
+
+  // FORCE ARROWS
+  const cx=ww/2, cy=bY+bH/2;
+  const sc2=wh*0.0015;
+
+  // Weight (navy, down from centre)
+  const wLen=Math.min(WL*sc2,wh*0.22);
+  arrow(cx,cy,cx,cy+wLen,'#1b2348',3);
+  lbl(`W=${WL.toFixed(0)}N`,cx+32,cy+wLen*0.55,'#1b2348','left');
+
+  // Normal (green, up from bottom of block = platform surface)
+  if(N>1){
+    const nLen=Math.min(N*sc2,wh*0.22);
+    arrow(cx-14,bY+bH,cx-14,bY+bH-nLen,'#2fa84f',3);
+    lbl(`N=${N.toFixed(0)}N`,cx-14-34,bY+bH-nLen*0.55,'#2fa84f','right');
+  }
+
+  // Applied F (orange, DOWN from top of block — pushing the weight down)
+  if(appliedF>1){
+    const fLen=Math.min(appliedF*sc2,wh*0.22);
+    arrow(cx+14,bY,cx+14,bY+fLen,'#e88b00',3);
+    lbl(`F=${appliedF.toFixed(0)}N`,cx+14+34,bY+fLen*0.55,'#e88b00','left');
+  }
+
+  // readouts
+  document.getElementById('vF').textContent=appliedF.toFixed(0)+' N';
+  document.getElementById('vN').textContent=(N/G).toFixed(1)+' kg';
+
+  // caption
+  const capEl=document.getElementById('cap');
+  if(appliedF===0) capEl.innerHTML='No applied force. Machine reads true weight of block.';
+  else capEl.innerHTML=`N = W + F = ${WL.toFixed(0)} + ${appliedF} = ${N.toFixed(0)} N (${(N/G).toFixed(1)} kg)`;
+}
+
+document.getElementById('sl').addEventListener('input',e=>{
+  appliedF=parseInt(e.target.value);
+  document.getElementById('svSl').textContent=appliedF+' N';
+  draw();
+});
+window.addEventListener('resize',()=>{fit();draw();});
+fit();draw();
+</script>
+</body>
+</html>
