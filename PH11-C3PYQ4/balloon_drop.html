@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gently Dropped from a Rising Balloon</title>
+<style>
+  :root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--blue:#185FA5;--red:#E24B4A}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:min(94vw,360px)}
+  .head{font-size:14.5px;font-weight:700;color:var(--navy);margin-bottom:2px}
+  .sub{font-size:11px;color:#5a6080;line-height:1.4;font-weight:500}
+  .intro{margin-bottom:7px}.intro .head{margin-bottom:2px}.intro .sub{margin-bottom:0}
+  .card{background:#fff;border-radius:12px;border:2px solid var(--navy);overflow:hidden;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  canvas{display:block;width:100%;height:auto}
+  .cap{font-size:11px;font-weight:600;color:var(--navy);line-height:1.35;padding:7px 12px;min-height:30px}
+  .cap b{font-weight:800}
+  .ctrl{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .ctrl label{font-size:11.5px;font-weight:700;color:var(--navy);min-width:96px;text-transform:uppercase;letter-spacing:.04em}
+  input[type=range]{flex:1;accent-color:var(--navy);cursor:pointer;height:22px}
+  .val{font-size:12px;font-weight:800;color:#fff;background:var(--navy);border-radius:20px;
+    padding:3px 9px;min-width:62px;text-align:center}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .btn{padding:10px;border-radius:8px;border:2px solid var(--navy);font-size:12px;font-weight:700;
+    cursor:pointer;font-family:inherit;background:#fff;color:var(--navy)}
+  .btn.go{background:var(--green);color:#fff;border-color:var(--green);box-shadow:0 3px 0 #1d7a37}
+  .btn.go:active{transform:translateY(2px);box-shadow:0 1px 0 #1d7a37}
+  footer{margin-top:8px;text-align:center;font-size:10px;color:#888780;padding-top:7px;border-top:.5px solid rgba(0,0,0,.12)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad intro">
+    <div class="head">Gently dropped from a rising balloon</div>
+    <div class="sub">Gently dropped means the stone keeps the balloon's upward speed, so it rises first, then falls.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas>
+    <div class="cap" id="cap">Balloon rising at 10 m/s. Press Play to drop the stone.</div></div>
+  <div class="card pad">
+    <div class="ctrl">
+      <label>Balloon speed</label>
+      <input type="range" id="sp" min="0" max="20" step="1" value="10">
+      <span class="val" id="spv">10 m/s</span>
+    </div>
+    <div class="btns">
+      <button class="btn go" id="play">&#9654; Play</button>
+      <button class="btn" id="reset">&#8635; Reset</button>
+    </div>
+  </div>
+  <footer>Motion in a Plane &middot; Projectile from a height</footer>
+</div>
+<script>
+const G=10, H0=75, YMAX=112, SPEED=0.85;
+let u=10, mode='ready', simT=0, lastTs=null;
+const scn=document.getElementById('scene'), sx=scn.getContext('2d');
+const cap=document.getElementById('cap');
+let W=320,H=380;
+const ASPECT=1.18;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+
+const tLand=()=>(u+Math.sqrt(u*u+2*G*H0))/G;
+const stoneH=t=>H0+u*t-0.5*G*t*t;
+const balloonH=t=>H0+u*t;
+const stoneV=t=>u-G*t;
+
+function geo(){const top=14, groundY=H-22, colX=Math.round(W*0.46);
+  return {top,groundY,colX,yP:h=>groundY-(h/YMAX)*(groundY-top)};}
+function arrow(x,y,dy,col,wd){sx.save();sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x,y+dy);sx.stroke();
+  const s=Math.sign(dy)||-1,h=6+wd;sx.beginPath();sx.moveTo(x,y+dy);sx.lineTo(x-h*0.6,y+dy-s*h);sx.lineTo(x+h*0.6,y+dy-s*h);sx.closePath();sx.fill();sx.restore();}
+function tag(t,x,y,col,al,sz,wt){sx.save();sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';
+  sx.lineWidth=3.5;sx.strokeStyle='rgba(255,255,255,.95)';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);sx.restore();}
+function balloon(cx,cy,col){sx.save();
+  sx.fillStyle=col;sx.beginPath();sx.ellipse(cx,cy,10,12,0,0,7);sx.fill();
+  sx.fillStyle='rgba(255,255,255,.28)';sx.beginPath();sx.ellipse(cx-3,cy-2.5,2.8,4.2,0,0,7);sx.fill();
+  sx.strokeStyle=col;sx.lineWidth=1.1;sx.beginPath();sx.moveTo(cx-5,cy+10);sx.lineTo(cx-3,cy+16);sx.moveTo(cx+5,cy+10);sx.lineTo(cx+3,cy+16);sx.stroke();
+  sx.fillStyle='#9a6b3b';sx.fillRect(cx-3.2,cy+16,6.4,4.2);sx.restore();}
+
+function draw(ts){const g=geo();sx.clearRect(0,0,W,H);
+  // sky + ground
+  const sky=sx.createLinearGradient(0,g.top,0,g.groundY);sky.addColorStop(0,'#cfe6f5');sky.addColorStop(1,'#eef6fb');
+  sx.fillStyle=sky;sx.fillRect(0,g.top,W,g.groundY-g.top);
+  sx.fillStyle='#d9c39a';sx.fillRect(0,g.groundY,W,H-g.groundY-2);
+  sx.strokeStyle='#b89e6e';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,g.groundY);sx.lineTo(W,g.groundY);sx.stroke();
+  // height scale gridlines + labels
+  sx.strokeStyle='rgba(27,35,72,.10)';sx.lineWidth=1;
+  [25,50,100].forEach(h=>{sx.beginPath();sx.moveTo(26,g.yP(h));sx.lineTo(W-6,g.yP(h));sx.stroke();tag(h+'',22,g.yP(h),'#7a8099','right',9);});
+  tag('0',22,g.yP(0),'#7a8099','right',9);tag('m',22,g.top+4,'#7a8099','right',9);
+  // motion column guide
+  sx.strokeStyle='rgba(27,35,72,.08)';sx.lineWidth=1.5;sx.beginPath();sx.moveTo(g.colX,g.top);sx.lineTo(g.colX,g.groundY);sx.stroke();
+  // 75 m release line
+  sx.save();sx.strokeStyle='rgba(27,35,72,.55)';sx.lineWidth=1.3;sx.setLineDash([5,4]);
+  sx.beginPath();sx.moveTo(26,g.yP(H0));sx.lineTo(W-6,g.yP(H0));sx.stroke();sx.restore();
+  tag('release  75 m',W-8,g.yP(H0)-7,'#1b2348','right',9.5);
+
+  let bH,tNow;
+  if(mode==='ready'){tNow=0;bH=H0+1.1*Math.sin((ts||0)/420);}
+  else{tNow=(mode==='done')?tLand():simT;bH=balloonH(tNow);}
+
+  // ----- stone path: up-leg (left) and down-leg (right), side by side -----
+  const peakT=u/G, peakH=H0+u*u/(2*G), OFF=(u>0?Math.max(4.5,W*0.015):0);
+  const xUp=g.colX-OFF, xDn=g.colX+OFF;
+  const xAt=t=>g.colX+OFF*Math.tanh(-stoneV(t)/3);
+  if(mode!=='ready'){
+    const tE=Math.min(tNow,tLand());
+    sx.save();sx.strokeStyle='#E24B4A';sx.lineWidth=2.8;sx.lineCap='round';sx.lineJoin='round';sx.setLineDash([0.1,6]);sx.beginPath();
+    for(let tk=0;tk<=tE+1e-6;tk+=0.03){const h=stoneH(tk);if(h<0)break;tk?sx.lineTo(xAt(tk),g.yP(Math.max(0,h))):sx.moveTo(xAt(0),g.yP(h));}
+    sx.stroke();sx.restore();
+    // highest-point marker + lane labels
+    if(u>0&&tNow>=peakT){sx.save();sx.strokeStyle='rgba(226,75,74,.6)';sx.lineWidth=1.2;sx.setLineDash([4,3]);
+      sx.beginPath();sx.moveTo(26,g.yP(peakH));sx.lineTo(W-6,g.yP(peakH));sx.stroke();sx.restore();
+      tag('highest point',W-8,g.yP(peakH)-7,'#E24B4A','right',9);
+      const my=g.yP((H0+peakH)/2);tag('up',xUp-8,my,'#E24B4A','right',8.5);tag('down',xDn+8,my,'#E24B4A','left',8.5);}
+  }
+
+  // ----- balloon + constant up arrow -----
+  if(u>0){const by=g.yP(Math.min(bH,YMAX));arrow(g.colX-15,by,-(8+u*1.0),'#185FA5',2.5);}
+  if(bH<=YMAX) balloon(g.colX,g.yP(bH),'#185FA5'); else tag('\u25B2',g.colX,g.top+6,'#185FA5','center',13);
+  tag('balloon',g.colX+ (bH<=YMAX?16:0), g.yP(Math.min(bH,YMAX))+(bH<=YMAX?0:12),'#185FA5','left',9);
+
+  // ----- stone marker + changing velocity arrow -----
+  if(mode!=='ready'){const tn=tNow;const sH=Math.max(0,stoneH(tn)),sv=stoneV(tn);
+    const sxp=xAt(tn),sy=g.yP(sH);
+    if(Math.abs(sv)>0.3){const dy=-(sv*1.0),d=Math.sign(dy);const axp=sxp+(sv>0?-14:14);arrow(axp,sy,dy+d*4,'#E24B4A',2.5);}
+    sx.fillStyle='#E24B4A';sx.beginPath();sx.arc(sxp,sy,6.5,0,7);sx.fill();
+    sx.strokeStyle='#fff';sx.lineWidth=1.3;sx.stroke();}
+}
+
+function loop(ts){
+  if(mode==='run'){if(lastTs==null)lastTs=ts;let dt=(ts-lastTs)/1000;lastTs=ts;if(dt>0.05)dt=0.05;
+    simT+=dt*SPEED;
+    if(simT>=tLand()){simT=tLand();mode='done';showDone();}
+    else cap.innerHTML='t = <b>'+simT.toFixed(1)+' s</b> &nbsp; height = <b>'+Math.max(0,stoneH(simT)).toFixed(0)+' m</b> &nbsp; speed = <b>'+Math.abs(stoneV(simT)).toFixed(0)+' m/s</b>';
+  }
+  draw(ts);requestAnimationFrame(loop);
+}
+function showDone(){const tl=tLand().toFixed(1);
+  if(u===0)cap.innerHTML='<b>Lands at t = '+tl+' s.</b> With no upward speed it just free-falls.';
+  else cap.innerHTML='<b>Lands at t = '+tl+' s.</b> It first rose <b>'+(u*u/(2*G)).toFixed(0)+' m</b> above the release point.';}
+function setU(v){u=+v;document.getElementById('spv').textContent=u+' m/s';
+  if(mode==='ready')cap.innerHTML='Balloon rising at <b>'+u+' m/s</b>. Press Play to drop the stone.';}
+document.getElementById('sp').addEventListener('input',e=>setU(e.target.value));
+document.getElementById('play').addEventListener('click',()=>{if(mode==='run')return;mode='run';simT=0;lastTs=null;});
+document.getElementById('reset').addEventListener('click',()=>{mode='ready';simT=0;setU(u);});
+window.addEventListener('resize',()=>{fit();});
+fit();setU(10);requestAnimationFrame(loop);
+</script></body></html>

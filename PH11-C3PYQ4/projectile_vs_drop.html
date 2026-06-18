@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horizontal Projectile vs Dropped Ball</title>
+<style>
+:root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--red:#d9483b;--blue:#2e6fdb;--orange:#e88b00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  min-height:100vh;height:100dvh;display:flex;justify-content:center;
+  align-items:flex-start;padding:8px 0;overflow:hidden}
+.wrap{width:min(94vw,360px)}
+
+.prob-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 11px;margin-bottom:7px}
+.prob-text{font-size:12px;color:var(--navy);line-height:1.5;font-weight:500}
+.prob-text b{font-weight:700}
+
+.scene-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  overflow:hidden;margin-bottom:7px}
+canvas{display:block;width:100%;height:auto}
+
+.legend-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:9px 11px;margin-bottom:7px}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.leg-row:last-child{margin-bottom:0}
+.leg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.leg-line{width:22px;height:3px;border-radius:2px;flex-shrink:0;border-top:2px dashed}
+.leg-text{font-size:11.5px;color:var(--navy);font-weight:600}
+.leg-sub{font-size:10.5px;color:#888780;margin-left:3px}
+
+.slider-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 11px;margin-bottom:7px}
+.sl-row{display:flex;align-items:center;gap:8px}
+.sl-label{font-size:12px;font-weight:700;color:var(--navy);min-width:18px}
+.sl-val{font-size:12px;font-weight:700;color:var(--navy);
+  font-family:'Courier New',monospace;min-width:60px;text-align:right}
+input[type=range]{flex:1;-webkit-appearance:none;height:28px;
+  background:transparent;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{
+  height:28px;border-radius:14px;background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--navy);margin-top:1px;cursor:pointer;
+  box-shadow:0 2px 4px rgba(0,0,0,0.3)}
+input[type=range]::-moz-range-track{height:28px;border-radius:14px;
+  background:#fcf4e0;border:2px solid var(--navy)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+  background:var(--navy);cursor:pointer}
+
+.ctrl-card{background:#fff;border-radius:12px;border:2px solid var(--navy);
+  padding:10px 11px;margin-bottom:7px}
+.ctrl-row{display:flex;gap:8px}
+.ctrl-btn{flex:1;padding:11px 0;border-radius:8px;border:2px solid var(--navy);
+  font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-play{background:var(--green);color:#fff;box-shadow:0 4px 0 #1d7a37}
+.btn-play:active{transform:translateY(2px);box-shadow:0 2px 0 #1d7a37}
+.btn-reset{background:#f2efe9;color:var(--navy);box-shadow:0 4px 0 #c9c0b0}
+.btn-reset:active{transform:translateY(2px);box-shadow:0 2px 0 #c9c0b0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="prob-card">
+    <div class="prob-text">
+      <b>A</b> is thrown horizontally from a cliff. <b>B</b> is dropped from the same point.
+      The horizontal line shows they always fall to the <b>same height</b> — vertical motion is identical.
+    </div>
+  </div>
+
+  <div class="scene-card">
+    <canvas id="sc"></canvas>
+  </div>
+
+  <div class="legend-card">
+    <div class="leg-row">
+      <div class="leg-dot" style="background:var(--blue)"></div>
+      <div class="leg-text">A <span class="leg-sub">(horizontal projectile)</span></div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-dot" style="background:var(--red)"></div>
+      <div class="leg-text">B <span class="leg-sub">(dropped from rest)</span></div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="border-color:var(--orange)"></div>
+      <div class="leg-text leg-sub" style="color:#e88b00;font-weight:700">same height at all times</div>
+    </div>
+  </div>
+
+  <div class="slider-card">
+    <div class="sl-row">
+      <div class="sl-label">u</div>
+      <input type="range" id="slU" min="2" max="15" step="1" value="8">
+      <div class="sl-val" id="svU">8 m/s</div>
+    </div>
+  </div>
+
+  <div class="ctrl-card">
+    <div class="ctrl-row">
+      <button class="ctrl-btn btn-play"  id="btnPlay">▶ Play</button>
+      <button class="ctrl-btn btn-reset" id="btnReset">↺ Reset</button>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11px;font-style:italic;color:#888780;padding:4px 0 8px;font-family:'Trebuchet MS',sans-serif">
+    Motion in a Plane · Projectile from a Height
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('sc');
+const ctx    = canvas.getContext('2d');
+
+const g      = 10;       // m/s²
+const H_M    = 35;       // cliff height in metres
+let   u      = 8;        // horizontal speed m/s
+
+// sim state
+let t = 0, playing = false, animId = null, done = false;
+
+// trails
+let trailA = [], trailB = [];
+
+const ASPECT = 0.78;
+let W, H;
+
+// cliff: left 18% of canvas, ground at bottom 10%
+function layout(){
+  const cliffX  = Math.round(W * 0.18);
+  const groundY = Math.round(H * 0.90);
+  const sc      = (H * 0.80) / H_M;   // fixed scale, height drives it
+  return {
+    cliffX,
+    groundY,
+    topY : Math.round(groundY - H_M * sc),
+    scale: sc
+  };
+}
+
+// ── sizing with fit() ──────────────────────────────────────────────────
+function sizeCanvas(w){
+  W = w; H = Math.round(w * ASPECT);
+  const d = window.devicePixelRatio||1;
+  canvas.style.height = H+'px';
+  canvas.width  = Math.round(W*d);
+  canvas.height = Math.round(H*d);
+  ctx.setTransform(d,0,0,d,0,0);
+}
+function fit(){
+  const wrap = document.querySelector('.wrap');
+  const vw   = document.documentElement.clientWidth||360;
+  const vh   = window.innerHeight||640;
+  let w = Math.min(vw*0.94, 360);
+  wrap.style.width = w+'px';
+  sizeCanvas(w);
+  let chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  const avail = vh - 16;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){
+    w = Math.min(Math.min(vw*0.94,360), Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width = w+'px';
+    sizeCanvas(w);
+    chrome = wrap.offsetHeight - parseFloat(canvas.style.height||0);
+  }
+}
+
+// ── particle positions ─────────────────────────────────────────────────
+function posA(t){
+  const L = layout();
+  return {
+    x: L.cliffX + u * t * L.scale,
+    y: L.topY   + 0.5 * g * t * t * L.scale
+  };
+}
+function posB(t){
+  const L = layout();
+  return {
+    x: L.cliffX + 14,
+    y: L.topY + 0.5 * g * t * t * L.scale
+  };
+}
+function fallTime(){ return Math.sqrt(2 * H_M / g); }
+
+// ── draw ──────────────────────────────────────────────────────────────
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+
+  const L = layout();
+  const sc = L.scale;
+
+  // sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,L.groundY);
+  sky.addColorStop(0,'#deeeff'); sky.addColorStop(1,'#f5f8ff');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,L.groundY);
+
+  // ground
+  ctx.fillStyle='#c8b98a';
+  ctx.fillRect(0, L.groundY, W, H - L.groundY);
+  ctx.strokeStyle='#a09060'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,L.groundY); ctx.lineTo(W,L.groundY); ctx.stroke();
+
+  // cliff
+  ctx.fillStyle='#b0a080';
+  ctx.fillRect(0, L.topY, L.cliffX, L.groundY - L.topY);
+  ctx.strokeStyle='#8a7860'; ctx.lineWidth=1.5;
+  ctx.strokeRect(0, L.topY, L.cliffX, L.groundY - L.topY);
+  // cliff top label
+  ctx.save();
+  ctx.font='bold 10px Trebuchet MS,sans-serif';
+  ctx.fillStyle='rgba(27,35,72,.5)';
+  ctx.textAlign='right';
+  ctx.fillText('h = 35 m', L.cliffX-4, L.topY + (L.groundY-L.topY)/2);
+  ctx.restore();
+
+  // height arrow on cliff face
+  ctx.save();
+  ctx.strokeStyle='rgba(27,35,72,.3)'; ctx.lineWidth=1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(L.cliffX-14, L.topY); ctx.lineTo(L.cliffX-14, L.groundY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // trails
+  function drawTrail(trail, col){
+    if(trail.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle=col; ctx.lineWidth=1.8;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.globalAlpha=0.45;
+    ctx.beginPath();
+    trail.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+    ctx.restore();
+  }
+  drawTrail(trailA, '#2e6fdb');
+  drawTrail(trailB, '#d9483b');
+
+  // current positions
+  const pA = posA(t), pB = posB(t);
+
+  // horizontal connector line
+  ctx.save();
+  ctx.strokeStyle='#e88b00'; ctx.lineWidth=2;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(pB.x, pB.y); ctx.lineTo(pA.x, pA.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // dots
+  function dot(p, col, label){
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.font='bold 11px Trebuchet MS,sans-serif';
+    ctx.fillStyle=col; ctx.textAlign='center';
+    ctx.fillText(label, p.x, p.y - 12);
+    ctx.restore();
+  }
+  dot(pA, '#2e6fdb', 'A');
+  dot(pB, '#d9483b', 'B');
+
+  // velocity arrows
+  const vy = g * t;
+  const arS = sc * 0.04;   // arrow scale factor
+  const maxArr = W * 0.18;
+
+  // A: horizontal + downward
+  const vxLen = Math.min(u * arS, maxArr);
+  const vyLenA = Math.min(vy * arS, maxArr);
+  if(t > 0.05){
+    drawArrow(pA.x, pA.y, pA.x + vxLen, pA.y, '#2e6fdb', 1.8);
+    drawArrow(pA.x, pA.y, pA.x, pA.y + vyLenA, '#2e6fdb', 1.8);
+  }
+  // B: downward only
+  const vyLenB = Math.min(vy * arS, maxArr);
+  if(t > 0.05)
+    drawArrow(pB.x, pB.y, pB.x, pB.y + vyLenB, '#d9483b', 1.8);
+}
+
+function drawArrow(x1,y1,x2,y2,col,lw){
+  const dx=x2-x1, dy=y2-y1, d=Math.sqrt(dx*dx+dy*dy);
+  if(d<4) return;
+  const ux=dx/d, uy=dy/d, hw=4, hl=8;
+  ctx.save();
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hl*0.5, y2-uy*hl*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.translate(x2,y2); ctx.rotate(Math.atan2(dy,dx));
+  ctx.moveTo(0,0); ctx.lineTo(-hl,hw); ctx.lineTo(-hl,-hw); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ── animation ─────────────────────────────────────────────────────────
+const DT = 1/120;
+
+function loop(){
+  if(!playing) return;
+  t += DT;
+  const L = layout();
+  const pA = posA(t), pB = posB(t);
+  trailA.push({x:pA.x, y:pA.y});
+  trailB.push({x:pB.x, y:pB.y});
+  draw();
+
+  if(pB.y >= L.groundY || pA.y >= L.groundY){
+    // snap to ground
+    playing = false; done = true;
+    draw();
+  } else {
+    animId = requestAnimationFrame(loop);
+  }
+}
+
+function reset(){
+  if(animId) cancelAnimationFrame(animId);
+  t=0; playing=false; done=false;
+  trailA=[]; trailB=[];
+  document.getElementById('btnPlay').textContent='▶ Play';
+  draw();
+}
+
+// ── controls ──────────────────────────────────────────────────────────
+document.getElementById('btnPlay').addEventListener('click',()=>{
+  if(done){ reset(); return; }
+  playing=!playing;
+  document.getElementById('btnPlay').textContent = playing ? '⏸ Pause' : '▶ Play';
+  if(playing) loop();
+});
+document.getElementById('btnReset').addEventListener('click', reset);
+
+document.getElementById('slU').addEventListener('input',e=>{
+  u = parseInt(e.target.value);
+  document.getElementById('svU').textContent = u+' m/s';
+  reset();
+});
+
+window.addEventListener('resize',()=>{ fit(); draw(); });
+fit();
+reset();
+</script>
+</body>
+</html>
