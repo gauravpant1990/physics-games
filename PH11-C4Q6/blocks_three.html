@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three Connected Blocks</title>
+<style>
+  :root{--navy:#1b2348;--gold:#ffcf33;--green:#2fa84f;--blue:#185FA5;--red:#E24B4A}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f2efe9;font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:min(94vw,360px)}
+  .head{font-size:14.5px;font-weight:700;color:var(--navy);margin-bottom:2px}
+  .sub{font-size:11px;color:#5a6080;line-height:1.4;font-weight:500}
+  .intro{margin-bottom:7px}.intro .head{margin-bottom:2px}.intro .sub{margin-bottom:0}
+  .card{background:#fff;border-radius:12px;border:2px solid var(--navy);overflow:hidden;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  canvas{display:block;width:100%;height:auto}
+  .cap{font-size:11px;font-weight:700;color:var(--navy);line-height:1.4;padding:8px 12px;min-height:30px}
+  .cap b{font-weight:800}
+  .lbl{font-size:10.5px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .fbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px}
+  .fbtn{padding:9px 0;border-radius:8px;border:2px solid var(--navy);background:#fff;color:var(--navy);
+    font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+  .fbtn.active{background:var(--navy);color:var(--gold)}
+  .btn{width:100%;padding:11px;border-radius:8px;border:2px solid var(--navy);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:var(--navy)}
+  .btn.go{background:var(--green);color:#fff;border-color:var(--green);box-shadow:0 3px 0 #1d7a37}
+  .btn.go:active{transform:translateY(2px);box-shadow:0 1px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running .fpanel,#ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  footer{margin-top:8px;text-align:center;font-size:10px;color:#888780;padding-top:7px;border-top:.5px solid rgba(0,0,0,.12)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad intro">
+    <div class="head">Three blocks on a frictionless surface</div>
+    <div class="sub">One pull drags all three through two strings. Each string only carries the blocks behind it, so the tensions differ.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas>
+  </div>
+  <div class="card pad" id="ctrls">
+    <div class="fpanel">
+      <div class="lbl">Applied force</div>
+      <div class="fbtns" id="fbtns">
+        <button class="fbtn" data-f="10">10 N</button>
+        <button class="fbtn" data-f="20">20 N</button>
+        <button class="fbtn" data-f="50">50 N</button>
+        <button class="fbtn" data-f="100">100 N</button>
+      </div>
+    </div>
+    <button class="btn go" id="play">&#9654; Play</button>
+    <button class="btn" id="reset">&#8635; Reset</button>
+  </div>
+  <footer>Laws of Motion &middot; Connected blocks</footer>
+</div>
+<script>
+const M=[5,3,2];               // back(left) , middle , front(right, force here)
+const Fmax=100;
+let F=20, mode='select', v=0, dist=0, lastTs=null;
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const ctrls=document.getElementById('ctrls');
+let W=360,H=238;const ASPECT=0.66;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(180,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+function arrow(x,y,dx,dy,col,wd){const a=Math.atan2(dy,dx),h=8+wd,len=Math.hypot(dx,dy);sx.save();sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  const ex=x+dx,ey=y+dy;sx.beginPath();sx.moveTo(x,y);sx.lineTo(len>h?ex-h*0.7*Math.cos(a):x,len>h?ey-h*0.7*Math.sin(a):y);sx.stroke();
+  sx.beginPath();sx.moveTo(ex,ey);sx.lineTo(ex-h*Math.cos(a-0.45),ey-h*Math.sin(a-0.45));sx.lineTo(ex-h*Math.cos(a+0.45),ey-h*Math.sin(a+0.45));sx.closePath();sx.fill();sx.restore();}
+function tag(t,x,y,col,al,sz){sx.save();sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';
+  sx.lineWidth=3.5;sx.strokeStyle='rgba(255,255,255,.96)';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);sx.restore();}
+function block(x0,bw,bh,by,label){sx.fillStyle='#e8ecf3';sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();sx.roundRect(x0,by-bh,bw,bh,3);sx.fill();sx.stroke();tag(label,x0+bw/2,by-bh/2,'#1b2348','center',11.5);}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const a=F/(M[0]+M[1]+M[2]), T1=M[0]*a, T2=(M[0]+M[1])*a;
+  const groundY=H*0.72;
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,groundY);sx.lineTo(W,groundY);sx.stroke();
+  sx.strokeStyle='rgba(27,35,72,.20)';sx.lineWidth=1.5;
+  for(let x=W*0.04;x<W;x+=W*0.07){sx.beginPath();sx.moveTo(x,groundY);sx.lineTo(x,groundY+H*0.045);sx.stroke();}
+  const gap=W*0.105, bh=H*0.30;
+  const w=[W*(0.085+M[0]*0.014),W*(0.085+M[1]*0.014),W*(0.085+M[2]*0.014)];
+  const gW=w[0]+w[1]+w[2]+2*gap, startX=W*0.04, pxPerM=W*0.020, rightLimit=W*0.80;
+  let gx=startX+dist*pxPerM;
+  if(gx+gW>rightLimit){dist=0;v=0;gx=startX;}
+  const b1=gx, b2=b1+w[0]+gap, b3=b2+w[1]+gap, sy=groundY-bh*0.5, top=groundY-bh;
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();sx.moveTo(b1+w[0],sy);sx.lineTo(b2,sy);sx.moveTo(b2+w[1],sy);sx.lineTo(b3,sy);sx.stroke();
+  block(b1,w[0],bh,groundY,'5 kg');block(b2,w[1],bh,groundY,'3 kg');block(b3,w[2],bh,groundY,'2 kg');
+  const g1=(b1+w[0]+b2)/2, g2=(b2+w[1]+b3)/2, py=top-16;
+  sx.strokeStyle='rgba(27,35,72,.45)';sx.lineWidth=1.2;
+  sx.beginPath();sx.moveTo(g1,py+8);sx.lineTo(g1,sy);sx.moveTo(g2,py+8);sx.lineTo(g2,sy);sx.stroke();
+  tag('T\u2081 = '+T1.toFixed(0)+' N',g1,py,'#E24B4A','center',11);
+  tag('T\u2082 = '+T2.toFixed(0)+' N',g2,py,'#7A4FA3','center',11);
+  const fl=18+(F/Fmax)*(W*0.14);
+  arrow(b3+w[2],sy,fl,0,'#185FA5',4);tag('F = '+F+' N',b3+w[2]+fl/2,sy-14,'#185FA5','center',10.5);
+  tag('a = '+a.toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.05,H*0.11,'#2fa84f','left',12.5);
+  if(mode==='run') tag('v = '+v.toFixed(1)+' m/s',W*0.05,H*0.24,'#1b2348','left',11);
+}
+function loop(ts){if(mode==='run'){if(lastTs==null)lastTs=ts;let dt=(ts-lastTs)/1000;lastTs=ts;if(dt>0.05)dt=0.05;
+  const a=F/(M[0]+M[1]+M[2]);v+=a*dt;dist+=v*dt;}
+  draw();requestAnimationFrame(loop);}
+function setF(val){F=+val;[...document.querySelectorAll('.fbtn')].forEach(b=>b.classList.toggle('active',+b.dataset.f===F));}
+document.getElementById('fbtns').addEventListener('click',e=>{if(mode!=='select')return;const b=e.target.closest('.fbtn');if(!b)return;setF(b.dataset.f);});
+document.getElementById('play').addEventListener('click',()=>{mode='run';v=0;dist=0;lastTs=null;ctrls.classList.add('running');});
+document.getElementById('reset').addEventListener('click',()=>{mode='select';v=0;dist=0;ctrls.classList.remove('running');});
+window.addEventListener('resize',()=>{fit();});
+fit();setF(20);requestAnimationFrame(loop);
+</script></body></html>
