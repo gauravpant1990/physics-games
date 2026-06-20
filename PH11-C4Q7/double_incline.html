@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Two Inclines &amp; a Pulley</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;
+    padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;flex-direction:column;gap:9px}
+  .srow{display:flex;align-items:center;gap:9px}
+  .slab{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap}
+  .sval{font-size:12px;font-weight:800;color:#185FA5;min-width:46px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:6px;background:#d7dae6;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#185FA5;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#185FA5;border:3px solid #fff;cursor:pointer}
+  #ctrls.running .srow{opacity:.45;pointer-events:none}
+  .btns{display:flex;gap:8px}
+  button{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  #play{background:#2fa84f;border-color:#1d7a37;color:#fff;box-shadow:0 2px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Two Inclines &amp; a Pulley</div>
+    <div class="sub">Frictionless. Set the left block's mass. Each side is pulled by its own slope; the bigger pull slides down and drags the other up.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" id="ctrls">
+    <div class="ctl">
+      <div class="srow">
+        <span class="slab">Left block M&#8321;</span>
+        <input type="range" id="mass" min="1" max="16" step="1" value="4">
+        <span class="sval" id="mval">4 kg</span>
+      </div>
+      <div class="btns">
+        <button id="play">&#9654; Play</button>
+        <button id="reset">&#8635; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Two Inclines &amp; a Pulley</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const massEl=document.getElementById('mass'),mval=document.getElementById('mval'),
+      ctrls=document.getElementById('ctrls'),playB=document.getElementById('play'),resetB=document.getElementById('reset');
+let W=360,H=216;const ASPECT=0.60;
+const M2=6,g=10;
+const AL=37*Math.PI/180, BR=53*Math.PI/180;
+const sA=Math.sin(AL),cA=Math.cos(AL),sB=Math.sin(BR),cB=Math.cos(BR);
+const DLx=-cA,DLy=sA, NLx=-sA,NLy=-cA;   // left: down-slope dir, up-out normal
+const DRx=cB, DRy=sB, NRx=sB, NRy=-cB;    // right: down-slope dir, up-out normal
+let m1=4,mode='select',t=0,u=0,v=0,stopped=false,last=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(180,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(9,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3;sx.strokeStyle='rgba(255,255,255,.92)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function blk(cx,cy,dx,dy,nx,ny,wb,hb,fill){const hx=dx*wb/2,hy=dy*wb/2,ux=nx*hb,uy=ny*hb;
+  sx.beginPath();sx.moveTo(cx+hx,cy+hy);sx.lineTo(cx-hx,cy-hy);sx.lineTo(cx-hx+ux,cy-hy+uy);sx.lineTo(cx+hx+ux,cy+hy+uy);sx.closePath();
+  sx.fillStyle=fill;sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();}
+
+function geo(){
+  const rP=W*0.026, hb=H*0.10;
+  const Apx=W*0.50, Apy=H*0.14, LincL=W*0.44, LincR=W*0.42;
+  const ropeL=hb*0.5, ropeR=hb*0.5;
+  const PLx=Apx+ropeL*NLx, PLy=Apy+ropeL*NLy, PL_N=PLx*NLx+PLy*NLy;
+  const PRx=Apx+ropeR*NRx, PRy=Apy+ropeR*NRy, PR_N=PRx*NRx+PRy*NRy;
+  const r1=PL_N-rP, r2=PR_N-rP, det=NLx*NRy-NLy*NRx;
+  const cx=(r1*NRy-r2*NLy)/det, cy=(NLx*r2-NRx*r1)/det;
+  const Pc=[cx,cy], ItanL=[cx+rP*NLx,cy+rP*NLy], ItanR=[cx+rP*NRx,cy+rP*NRy];
+  const wbI=W*(0.045+m1*0.0052), wb2=W*(0.045+M2*0.0052);
+  const d1_0=LincL*0.46, d2_0=LincR*0.46;
+  const uMax=Math.min(d1_0-wbI*0.6, (LincR-wb2*0.6)-d2_0);
+  const uMin=Math.max(d1_0-(LincL-wbI*0.6), wb2*0.6-d2_0);
+  return {rP,hb,Apx,Apy,LincL,LincR,ropeL,ropeR,Pc,ItanL,ItanR,wbI,wb2,d1_0,d2_0,uMax,uMin,pxPerM:W*0.05};
+}
+
+function angleMark(fx,fy,inward,num){
+  sx.strokeStyle='rgba(27,35,72,.55)';sx.lineWidth=1.4;sx.setLineDash([3,3]);
+  sx.beginPath();sx.moveTo(fx,fy);sx.lineTo(fx+inward*W*0.075,fy);sx.stroke();sx.setLineDash([]);
+  tag(num,fx+inward*W*0.052,fy-H*0.028,'#1b2348','center',11);
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const G=geo(), a=g*(M2*sB-m1*sA)/(m1+M2), bal=Math.abs(a)<0.02;
+  const Lf=[G.Apx+G.LincL*DLx, G.Apy+G.LincL*DLy], Rf=[G.Apx+G.LincR*DRx, G.Apy+G.LincR*DRy];
+  // incline lines
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(Lf[0],Lf[1]);sx.lineTo(G.Apx,G.Apy);sx.lineTo(Rf[0],Rf[1]);sx.stroke();
+  // hatching
+  sx.strokeStyle='rgba(27,35,72,.30)';sx.lineWidth=1.3;
+  for(let tt=8;tt<G.LincL-4;tt+=12){const x=G.Apx+tt*DLx,y=G.Apy+tt*DLy;sx.beginPath();sx.moveTo(x,y);sx.lineTo(x-2,y+8);sx.stroke();}
+  for(let tt=8;tt<G.LincR-4;tt+=12){const x=G.Apx+tt*DRx,y=G.Apy+tt*DRy;sx.beginPath();sx.moveTo(x,y);sx.lineTo(x-2,y+8);sx.stroke();}
+  angleMark(Lf[0],Lf[1],1,'37\u00B0');
+  angleMark(Rf[0],Rf[1],-1,'53\u00B0');
+
+  // blocks
+  const d1=G.d1_0-u, d2=G.d2_0+u;
+  const L1=[G.Apx+d1*DLx,G.Apy+d1*DLy], R1=[G.Apx+d2*DRx,G.Apy+d2*DRy];
+  blk(L1[0],L1[1],DLx,DLy,NLx,NLy,G.wbI,G.hb,'#d3def0');
+  blk(R1[0],R1[1],DRx,DRy,NRx,NRy,G.wb2,G.hb,'#f0e2c8');
+  const Lc=[L1[0]+NLx*G.hb/2,L1[1]+NLy*G.hb/2], Rc=[R1[0]+NRx*G.hb/2,R1[1]+NRy*G.hb/2];
+  tag('M\u2081='+m1,Lc[0],Lc[1],'#1b2348','center',10.5);
+  tag('M\u2082='+M2,Rc[0],Rc[1],'#7a5b13','center',10.5);
+  const lAtt=[G.Apx+(d1-G.wbI/2)*DLx+G.ropeL*NLx, G.Apy+(d1-G.wbI/2)*DLy+G.ropeL*NLy];
+  const rAtt=[G.Apx+(d2-G.wb2/2)*DRx+G.ropeR*NRx, G.Apy+(d2-G.wb2/2)*DRy+G.ropeR*NRy];
+
+  // ropes tangent to rim
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(lAtt[0],lAtt[1]);sx.lineTo(G.ItanL[0],G.ItanL[1]);sx.stroke();
+  sx.beginPath();sx.moveTo(rAtt[0],rAtt[1]);sx.lineTo(G.ItanR[0],G.ItanR[1]);sx.stroke();
+  // pulley
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP*0.30,0,7);sx.fillStyle='#1b2348';sx.fill();
+  sx.beginPath();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.arc(G.Pc[0],G.Pc[1],G.rP,Math.atan2(NLy,NLx),Math.atan2(NRy,NRx));sx.stroke();
+
+  // gravity-component arrows (length shows the pull strength)
+  const k=W*0.020, lenL=Math.min(W*0.15,k*m1*sA), lenR=Math.min(W*0.15,k*M2*sB);
+  arrow(Lc[0],Lc[1],DLx*lenL,DLy*lenL,'#E24B4A',3.5);
+  arrow(Rc[0],Rc[1],DRx*lenR,DRy*lenR,'#E24B4A',3.5);
+
+  // readouts
+  const T=M2*(g*sB-a);
+  tag('a = '+Math.abs(a).toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.04,H*0.08,'#2fa84f','left',13);
+  let dir=bal?'balanced - no motion':(a>0?'right block slides down':'left block slides down');
+  tag(dir,W*0.04,H*0.155,bal?'#7A4FA3':'#1b2348','left',11);
+  tag('T = '+T.toFixed(0)+' N',G.Apx,G.Apy-H*0.055,'#185FA5','center',12);
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(mode==='run'&&!stopped){
+    const G=geo(), a=g*(M2*sB-m1*sA)/(m1+M2);
+    if(Math.abs(a)<0.02){}
+    else{const aPx=a*G.pxPerM;t+=dt;u=0.5*aPx*t*t;v=aPx*t;
+      if(u>G.uMax){u=G.uMax;stopped=true;}
+      if(u<G.uMin){u=G.uMin;stopped=true;}}
+  }
+  draw();requestAnimationFrame(loop);}
+
+massEl.addEventListener('input',()=>{if(mode!=='select')return;m1=+massEl.value;mval.textContent=m1+' kg';draw();});
+playB.addEventListener('click',()=>{mode='run';t=0;u=0;v=0;stopped=false;last=0;ctrls.classList.add('running');});
+resetB.addEventListener('click',()=>{mode='select';t=0;u=0;v=0;stopped=false;ctrls.classList.remove('running');draw();});
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pulley on an Incline</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;
+    padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;flex-direction:column;gap:9px}
+  .srow{display:flex;align-items:center;gap:9px}
+  .slab{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap}
+  .sval{font-size:12px;font-weight:800;color:#185FA5;min-width:46px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:6px;
+    background:#d7dae6;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+    background:#185FA5;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#185FA5;
+    border:3px solid #fff;cursor:pointer}
+  #ctrls.running .srow{opacity:.45;pointer-events:none}
+  .btns{display:flex;gap:8px}
+  button{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:9px 0;border-radius:9px;
+    border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  #play{background:#2fa84f;border-color:#1d7a37;color:#fff;box-shadow:0 2px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Pulley on an Incline</div>
+    <div class="sub">Frictionless. The flat block's mass is yours to set. Lower it too far and the ramp block drags it off the edge.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" id="ctrls">
+    <div class="ctl">
+      <div class="srow">
+        <span class="slab">Flat block m&#8321;</span>
+        <input type="range" id="mass" min="1" max="12" step="1" value="9">
+        <span class="sval" id="mval">9 kg</span>
+      </div>
+      <div class="btns">
+        <button id="play">&#9654; Play</button>
+        <button id="reset">&#8635; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Pulley on an Incline</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const massEl=document.getElementById('mass'),mval=document.getElementById('mval'),
+      ctrls=document.getElementById('ctrls'),playB=document.getElementById('play'),resetB=document.getElementById('reset');
+let W=360,H=223;const ASPECT=0.62;
+const M2=3,g=10,TH=Math.PI/6,ct=Math.cos(TH),st=Math.sin(TH);
+let m1=9,mode='select',t=0,s=0,v=0,slipped=false,tf=0,phi=0,last=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(180,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(9,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3;sx.strokeStyle='rgba(255,255,255,.92)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function rrect(x,y,w,h,r){sx.beginPath();sx.roundRect(x,y,w,h,r);}
+
+const Nx=st,Ny=-ct;
+function geo(){
+  const ySurf=H*0.32, xLeft=W*0.05, xP=W*0.44, rP=W*0.026;
+  const Linc=W*0.52, bottom=[xP+Linc*ct,ySurf+Linc*st];
+  const wb1=W*(0.05+m1*0.0065), hb1=H*0.13;
+  const wb2=W*(0.05+M2*0.0065),  hb2=H*0.13;
+  const ropeF=hb1*0.5, ropeI=hb2*0.5, yA=ySurf-ropeF;
+  const cy=yA+rP, Ccx=xP, Ccy=ySurf;
+  const Bpx=Ccx+ropeI*Nx, Bpy=Ccy+ropeI*Ny, BpN=Bpx*Nx+Bpy*Ny;
+  const cx=(BpN - rP + cy*ct)/st;
+  const Pc=[cx,cy], Ftan=[cx,yA], Itan=[cx+rP*Nx,cy+rP*Ny];
+  const xFlat0=xLeft+wb1/2+W*0.02, sLimit=cx-(xFlat0+wb1/2), t2_0=W*0.14;
+  return {ySurf,xLeft,xP,rP,Pc,Ftan,Itan,Linc,bottom,wb1,hb1,wb2,hb2,ropeI,yA,xFlat0,sLimit,t2_0,pxPerM:W*0.05,Ccx,Ccy};
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const G=geo(), a=M2*g*st/(m1+M2);
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(G.xLeft,G.ySurf);sx.lineTo(G.xP,G.ySurf);sx.lineTo(G.bottom[0],G.bottom[1]);sx.stroke();
+  sx.strokeStyle='rgba(27,35,72,.30)';sx.lineWidth=1.4;
+  for(let x=G.xLeft+6;x<G.xP-2;x+=12){sx.beginPath();sx.moveTo(x,G.ySurf);sx.lineTo(x-5,G.ySurf+7);sx.stroke();}
+  for(let tt=8;tt<G.Linc-4;tt+=12){const bx=G.xP+tt*ct,by=G.ySurf+tt*st;sx.beginPath();sx.moveTo(bx,by);sx.lineTo(bx-2,by+8);sx.stroke();}
+  const t2=G.t2_0+s, cP=[G.xP+t2*ct,G.ySurf+t2*st];
+  sx.save();sx.translate(cP[0],cP[1]);sx.rotate(TH);
+  rrect(-G.wb2/2,-G.hb2,G.wb2,G.hb2,4);sx.fillStyle='#f0e2c8';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();sx.restore();
+  const c2=[cP[0]+Nx*G.hb2/2,cP[1]+Ny*G.hb2/2];
+  tag('m\u2082 = '+M2+' kg',c2[0]+10,c2[1]-2,'#7a5b13','center',10.5);
+  const inAtt=[G.Ccx+(t2-G.wb2/2)*ct+G.ropeI*Nx, G.Ccy+(t2-G.wb2/2)*st+G.ropeI*Ny];
+  let flAtt=null,xF=G.xFlat0+s;
+  if(!slipped){
+    rrect(xF-G.wb1/2,G.ySurf-G.hb1,G.wb1,G.hb1,4);sx.fillStyle='#d3def0';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();
+    tag('m\u2081 = '+m1+' kg',xF,G.ySurf-G.hb1/2,'#1b2348','center',10.5);
+    flAtt=[xF+G.wb1/2,G.yA];
+  } else {
+    sx.save();sx.translate(G.Pc[0],G.ySurf);sx.rotate(phi);
+    rrect(-G.wb1,-G.hb1,G.wb1,G.hb1,4);sx.fillStyle='#d3def0';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();sx.restore();
+  }
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.lineCap='round';
+  if(flAtt){sx.beginPath();sx.moveTo(flAtt[0],flAtt[1]);sx.lineTo(G.Ftan[0],G.Ftan[1]);sx.stroke();}
+  sx.beginPath();sx.moveTo(G.Itan[0],G.Itan[1]);sx.lineTo(inAtt[0],inAtt[1]);sx.stroke();
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP*0.30,0,7);sx.fillStyle='#1b2348';sx.fill();
+  sx.beginPath();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.arc(G.Pc[0],G.Pc[1],G.rP,-Math.PI/2,Math.atan2(Ny,Nx));sx.stroke();
+  if(!slipped){
+    arrow(c2[0],c2[1],ct*W*0.10,st*W*0.10,'#E24B4A',3.5);
+    if(mode==='run') arrow(xF+G.wb1/2,G.yA,W*0.085,0,'#185FA5',3.5);
+  }
+  tag('a = '+a.toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.05,H*0.10,'#2fa84f','left',13);
+  if(slipped) tag('slips off the edge!',G.Pc[0]+W*0.02,G.ySurf-H*0.16,'#E24B4A','left',12.5);
+}
+
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(mode==='run'){
+    const G=geo();
+    if(!slipped){const a=M2*g*st/(m1+M2),aPx=a*G.pxPerM;
+      t+=dt;s=0.5*aPx*t*t;v=aPx*t;
+      if(s>=G.sLimit){s=G.sLimit;slipped=true;tf=0;}}
+    else{tf+=dt;phi=Math.min(1.25,4.6*tf);}
+  }
+  draw();requestAnimationFrame(loop);}
+
+massEl.addEventListener('input',()=>{if(mode!=='select')return;m1=+massEl.value;mval.textContent=m1+' kg';draw();});
+playB.addEventListener('click',()=>{mode='run';t=0;s=0;v=0;slipped=false;tf=0;phi=0;last=0;ctrls.classList.add('running');});
+resetB.addEventListener('click',()=>{mode='select';t=0;s=0;v=0;slipped=false;tf=0;phi=0;ctrls.classList.remove('running');draw();});
+
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>

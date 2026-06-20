@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Incline & Hanging Mass</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;
+    padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;flex-direction:column;gap:9px}
+  .srow{display:flex;align-items:center;gap:9px}
+  .slab{font-size:11.5px;font-weight:700;color:var(--navy);white-space:nowrap}
+  .sval{font-size:12px;font-weight:800;color:#185FA5;min-width:46px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:6px;background:#d7dae6;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#185FA5;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#185FA5;border:3px solid #fff;cursor:pointer}
+  #ctrls.running .srow{opacity:.45;pointer-events:none}
+  .btns{display:flex;gap:8px}
+  button{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  #play{background:#2fa84f;border-color:#1d7a37;color:#fff;box-shadow:0 2px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Incline &amp; Hanging Mass</div>
+    <div class="sub">Frictionless. Set the ramp block's mass. Lighter than the balance point: the hanging weight wins. Heavier: it slides down.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" id="ctrls">
+    <div class="ctl">
+      <div class="srow">
+        <span class="slab">Ramp block M&#8321;</span>
+        <input type="range" id="mass" min="1" max="16" step="1" value="5">
+        <span class="sval" id="mval">5 kg</span>
+      </div>
+      <div class="btns">
+        <button id="play">&#9654; Play</button>
+        <button id="reset">&#8635; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Incline &amp; Hanging Mass</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const massEl=document.getElementById('mass'),mval=document.getElementById('mval'),
+      ctrls=document.getElementById('ctrls'),playB=document.getElementById('play'),resetB=document.getElementById('reset');
+let W=360,H=295;const ASPECT=0.82;
+const M2=4,g=10,TH=Math.PI/6,ct=Math.cos(TH),st=Math.sin(TH);
+const DIx=ct,DIy=-st, Nx=-st,Ny=-ct;        // up-incline dir, up-out normal
+let m1=5,mode='select',t=0,u=0,v=0,stopped=false,last=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(180,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(9,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3;sx.strokeStyle='rgba(255,255,255,.92)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function rrect(x,y,w,h,r){sx.beginPath();sx.roundRect(x,y,w,h,r);}
+
+function geo(){
+  const rP=W*0.026, hb=H*0.10;
+  const Bx=W*0.09, By=H*0.82, Linc=W*0.60;
+  const Ax=Bx+Linc*DIx, Ay=By+Linc*DIy;
+  const ropeI=hb*0.5;
+  const cx=Ax, xHang=cx+rP;
+  const PiBx=Bx+ropeI*Nx, PiBy=By+ropeI*Ny, PiBN=PiBx*Nx+PiBy*Ny;
+  const cy=(PiBN - rP - cx*Nx)/Ny;
+  const Pc=[cx,cy], ItanI=[cx+rP*Nx,cy+rP*Ny], ItanV=[cx+rP,cy];
+  const floorY=By;
+  const wbI=W*(0.05+m1*0.006), wb2=W*(0.05+M2*0.006), hb2=hb;
+  const d1_0=Linc*0.46, L2_0=(floorY-cy)*0.42;
+  const uMax=Math.min((Linc-wbI*0.6)-d1_0, (floorY-hb2)-(cy+L2_0));
+  const uMin=Math.max((wbI*0.6)-d1_0, (hb2*0.7)-L2_0);
+  return {rP,hb,Bx,By,Linc,Ax,Ay,ropeI,cx,xHang,Pc,ItanI,ItanV,floorY,wbI,wb2,hb2,d1_0,L2_0,uMax,uMin,pxPerM:W*0.05};
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const G=geo(), a=g*(M2-m1*st)/(m1+M2), bal=Math.abs(a)<0.02;
+  // ground (right of base) + incline
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(G.Bx,G.By);sx.lineTo(G.Ax,G.Ay);sx.stroke();           // incline
+  sx.beginPath();sx.moveTo(G.Bx,G.By);sx.lineTo(W*0.97,G.By);sx.stroke();         // ground
+  sx.strokeStyle='rgba(27,35,72,.30)';sx.lineWidth=1.4;
+  for(let tt=8;tt<G.Linc-4;tt+=12){const bx=G.Bx+tt*DIx,by=G.By+tt*DIy;sx.beginPath();sx.moveTo(bx,by);sx.lineTo(bx-3,by+8);sx.stroke();}
+  for(let x=G.Bx+14;x<W*0.95;x+=13){sx.beginPath();sx.moveTo(x,G.By);sx.lineTo(x-5,G.By+7);sx.stroke();}
+  // angle mark
+  tag('\u03B8',G.Bx+W*0.055,G.By-H*0.022,'#1b2348','center',12);
+
+  // incline block M1
+  const d1=G.d1_0+u, cP=[G.Bx+d1*DIx, G.By+d1*DIy];
+  sx.save();sx.translate(cP[0],cP[1]);sx.rotate(-TH);
+  rrect(-G.wbI/2,-G.hb,G.wbI,G.hb,4);sx.fillStyle='#d3def0';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();sx.restore();
+  const c1=[cP[0]+Nx*G.hb/2,cP[1]+Ny*G.hb/2];
+  tag('M\u2081 = '+m1+' kg',c1[0]-W*0.01,c1[1]-H*0.005,'#1b2348','center',10.5);
+  const inAtt=[G.Bx+(d1+G.wbI/2)*DIx+G.ropeI*Nx, G.By+(d1+G.wbI/2)*DIy+G.ropeI*Ny]; // up-incline top corner
+
+  // hanging block M2
+  const L2=G.L2_0+u, m2y=G.Pc[1]+L2;
+  rrect(G.xHang-G.wb2/2, m2y, G.wb2, G.hb2, 4);sx.fillStyle='#f0e2c8';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();
+  tag('M\u2082 = '+M2+' kg',G.xHang,m2y+G.hb2/2,'#7a5b13','center',10.5);
+
+  // ropes (tangent to rim)
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(inAtt[0],inAtt[1]);sx.lineTo(G.ItanI[0],G.ItanI[1]);sx.stroke();      // up incline
+  sx.beginPath();sx.moveTo(G.ItanV[0],G.ItanV[1]);sx.lineTo(G.xHang,m2y);sx.stroke();            // vertical
+  // pulley
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(G.Pc[0],G.Pc[1],G.rP*0.30,0,7);sx.fillStyle='#1b2348';sx.fill();
+  sx.beginPath();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.arc(G.Pc[0],G.Pc[1],G.rP,Math.atan2(Ny,Nx),0);sx.stroke();
+
+  // gravity arrows (the competition)
+  arrow(c1[0],c1[1],-DIx*W*0.10,-DIy*W*0.10,'#E24B4A',3.5);                 // M1 g sin component down-incline
+  arrow(G.xHang,m2y+G.hb2/2,0,H*0.075,'#E24B4A',3.5);                       // M2 weight down
+
+  // readouts
+  const T=M2*(g-a);
+  tag('a = '+Math.abs(a).toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.04,H*0.07,'#2fa84f','left',13);
+  let dir = bal ? 'balanced - no motion' : (a>0 ? 'hanging weight wins, slides up' : 'ramp block slides down');
+  tag(dir,W*0.04,H*0.13,bal?'#7A4FA3':'#1b2348','left',11);
+  tag('T = '+T.toFixed(0)+' N',G.xHang+W*0.05,G.Pc[1]+L2*0.5,'#185FA5','left',12);
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(mode==='run'&&!stopped){
+    const G=geo(), a=g*(M2-m1*st)/(m1+M2);
+    if(Math.abs(a)<0.02){/* balanced: stay put */}
+    else{const aPx=a*G.pxPerM;t+=dt;u=0.5*aPx*t*t;v=aPx*t;
+      if(u>G.uMax){u=G.uMax;stopped=true;}
+      if(u<G.uMin){u=G.uMin;stopped=true;}}
+  }
+  draw();requestAnimationFrame(loop);}
+
+massEl.addEventListener('input',()=>{if(mode!=='select')return;m1=+massEl.value;mval.textContent=m1+' kg';draw();});
+playB.addEventListener('click',()=>{mode='run';t=0;u=0;v=0;stopped=false;last=0;ctrls.classList.add('running');});
+resetB.addEventListener('click',()=>{mode='select';t=0;u=0;v=0;stopped=false;ctrls.classList.remove('running');draw();});
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>
