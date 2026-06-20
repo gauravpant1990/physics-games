@@ -1,0 +1,146 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Heavy Rope over a Pulley</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;
+    padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;flex-direction:column;gap:9px}
+  .lab{font-size:11px;font-weight:700;color:var(--navy);text-align:center;text-transform:uppercase;letter-spacing:.4px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:8px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.on{background:var(--navy);color:var(--gold)}
+  .btns{display:flex;gap:8px}
+  button.act{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  #play{background:#2fa84f;border-color:#1d7a37;color:#fff;box-shadow:0 2px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running .fpanel,#ctrls.running .lab,#ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Heavy Rope over a Pulley</div>
+    <div class="sub">A uniform heavy rope on a massless, frictionless pulley. Choose how it is split. The longer, heavier side wins and accelerates down.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" id="ctrls">
+    <div class="ctl">
+      <div class="lab">Rope split (left : right)</div>
+      <div class="fpanel" id="fbtns">
+        <button class="fbtn" data-r="1,1">1 : 1</button>
+        <button class="fbtn on" data-r="1,2">1 : 2</button>
+        <button class="fbtn" data-r="2,3">2 : 3</button>
+      </div>
+      <div class="btns">
+        <button class="act" id="play">&#9654; Play</button>
+        <button class="act" id="reset">&#8635; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Heavy Rope over a Pulley</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fbtns=document.getElementById('fbtns'),ctrls=document.getElementById('ctrls'),
+      playB=document.getElementById('play'),resetB=document.getElementById('reset');
+let W=360,H=360;const ASPECT=1.0;
+const g=10, MT=6;
+let r1=1,r2=2,mode='select',t=0,s=0,v=0,stopped=false,last=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(170,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(9,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3;sx.strokeStyle='rgba(255,255,255,.92)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+
+function geo(){
+  const ceil=H*0.05, rP=W*0.075, Pcx=W*0.50, Pcy=ceil+H*0.10;
+  const xL=Pcx-rP, xR=Pcx+rP, Ltot=H*0.66, ropeW=W*0.034;
+  const L10=Ltot*r1/(r1+r2), L20=Ltot*r2/(r1+r2);
+  const maxS=H*0.085;
+  return {ceil,rP,Pcx,Pcy,xL,xR,Ltot,ropeW,L10,L20,maxS,pxPerM:H*0.05};
+}
+
+function ropeStrand(x,yTop,yEnd,wdt){
+  sx.lineCap='round';
+  sx.strokeStyle='#7d4f25';sx.lineWidth=wdt+3;sx.beginPath();sx.moveTo(x,yTop);sx.lineTo(x,yEnd);sx.stroke();
+  sx.strokeStyle='#bb8047';sx.lineWidth=wdt;sx.beginPath();sx.moveTo(x,yTop);sx.lineTo(x,yEnd);sx.stroke();
+  sx.strokeStyle='rgba(80,45,15,.55)';sx.lineWidth=1.2;
+  for(let y=yTop+9;y<yEnd-3;y+=10){sx.beginPath();sx.moveTo(x-wdt/2+1,y);sx.lineTo(x+wdt/2-1,y);sx.stroke();}
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const G=geo();
+  const leftLen=G.L10-s, rightLen=G.L20+s, Lsum=leftLen+rightLen;
+  const a=g*(rightLen-leftLen)/Lsum, F=MT*a, bal=Math.abs(a)<0.02;
+  const mL=MT*leftLen/Lsum, mR=MT*rightLen/Lsum;
+  // ceiling
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.moveTo(W*0.16,G.ceil);sx.lineTo(W*0.84,G.ceil);sx.stroke();
+  sx.strokeStyle='rgba(27,35,72,.45)';sx.lineWidth=1.4;
+  for(let x=W*0.18;x<W*0.84;x+=11){sx.beginPath();sx.moveTo(x,G.ceil);sx.lineTo(x-7,G.ceil-7);sx.stroke();}
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.4;sx.beginPath();sx.moveTo(G.Pcx,G.ceil);sx.lineTo(G.Pcx,G.Pcy);sx.stroke();
+
+  // rope wrap over pulley + two strands
+  const yLend=G.Pcy+leftLen, yRend=G.Pcy+rightLen;
+  sx.lineCap='round';
+  sx.strokeStyle='#7d4f25';sx.lineWidth=G.ropeW+3;sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP,Math.PI,Math.PI*2);sx.stroke();
+  sx.strokeStyle='#bb8047';sx.lineWidth=G.ropeW;sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP,Math.PI,Math.PI*2);sx.stroke();
+  ropeStrand(G.xL,G.Pcy,yLend,G.ropeW);
+  ropeStrand(G.xR,G.Pcy,yRend,G.ropeW);
+
+  // pulley
+  sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP*0.26,0,7);sx.fillStyle='#1b2348';sx.fill();
+
+  // motion arrows: the direction each end of the rope moves
+  if(!bal){const mlen=H*0.085, mc='#E24B4A', mw=3.6, off=G.ropeW/2+W*0.03;
+    arrow(G.xL-off,yLend,0,-mlen,mc,mw);   // lighter side rises (left of strand)
+    arrow(G.xR+off,yRend,0, mlen,mc,mw);}  // heavier side falls (right of strand)
+
+  // readouts
+  tag('a = '+Math.abs(a).toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.05,H*0.085,'#2fa84f','left',13);
+  let dir=bal?'balanced - no motion':'right side falls';
+  tag(dir,W*0.05,H*0.125,bal?'#7A4FA3':'#1b2348','left',11);
+  tag('unbalanced pull = '+Math.abs(F).toFixed(0)+' N',W*0.95,H*0.085,'#E24B4A','right',11.5);
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(mode==='run'&&!stopped){
+    const G=geo();const leftLen=G.L10-s,rightLen=G.L20+s,a=g*(rightLen-leftLen)/(leftLen+rightLen);
+    if(Math.abs(a)<0.02){}
+    else{v+=a*G.pxPerM*dt;s+=v*dt;t+=dt;
+      if(s>=G.maxS){s=G.maxS;stopped=true;}
+      if(t>=0.8){stopped=true;}}
+  }
+  draw();requestAnimationFrame(loop);}
+
+fbtns.addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b||mode!=='select')return;
+  const p=b.dataset.r.split(',');r1=+p[0];r2=+p[1];[...fbtns.children].forEach(c=>c.classList.toggle('on',c===b));draw();});
+playB.addEventListener('click',()=>{mode='run';t=0;s=0;v=0;stopped=false;last=0;ctrls.classList.add('running');});
+resetB.addEventListener('click',()=>{mode='select';t=0;s=0;v=0;stopped=false;ctrls.classList.remove('running');draw();});
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>

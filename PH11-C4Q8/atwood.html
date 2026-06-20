@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Atwood Machine</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;
+    padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;flex-direction:column;gap:9px}
+  .lab{font-size:11px;font-weight:700;color:var(--navy);text-align:center;text-transform:uppercase;letter-spacing:.4px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:8px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.on{background:var(--navy);color:var(--gold)}
+  .btns{display:flex;gap:8px}
+  button.act{flex:1;font-family:inherit;font-size:13px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  #play{background:#2fa84f;border-color:#1d7a37;color:#fff;box-shadow:0 2px 0 #1d7a37}
+  #reset{display:none}
+  #ctrls.running .fpanel,#ctrls.running .lab,#ctrls.running #play{display:none}
+  #ctrls.running #reset{display:block}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Atwood Machine</div>
+    <div class="sub">Massless, frictionless pulley. Pick the left block's mass. The heavier side falls; arrows show which way each block moves.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" id="ctrls">
+    <div class="ctl">
+      <div class="lab">Left block mass</div>
+      <div class="fpanel" id="fbtns">
+        <button class="fbtn on" data-m="3">3 kg</button>
+        <button class="fbtn" data-m="5">5 kg</button>
+        <button class="fbtn" data-m="7">7 kg</button>
+      </div>
+      <div class="btns">
+        <button class="act" id="play">&#9654; Play</button>
+        <button class="act" id="reset">&#8635; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Atwood Machine</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fbtns=document.getElementById('fbtns'),ctrls=document.getElementById('ctrls'),
+      playB=document.getElementById('play'),resetB=document.getElementById('reset');
+let W=360,H=342;const ASPECT=0.95;
+const M2=5,g=10;
+let m1=3,mode='select',t=0,o=0,v=0,stopped=false,last=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<2&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(170,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(8,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3;sx.strokeStyle='rgba(255,255,255,.92)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function rrect(x,y,w,h,r){sx.beginPath();sx.roundRect(x,y,w,h,r);}
+
+function geo(){
+  const ceil=H*0.05, rP=W*0.09, Pcx=W*0.50, Pcy=ceil+H*0.12;
+  const xL=Pcx-rP, xR=Pcx+rP, floorY=H*0.93;
+  const s1=W*(0.07+m1*0.009), s2=W*(0.07+M2*0.009);
+  const y1_0=H*0.42, y2_0=H*0.42;
+  const oMax=Math.min(floorY-s1-y1_0, y2_0-(Pcy+rP+H*0.02));
+  const oMin=Math.max((Pcy+rP+H*0.02)-y1_0, -(floorY-s2-y2_0));
+  return {ceil,rP,Pcx,Pcy,xL,xR,floorY,s1,s2,y1_0,y2_0,oMax,oMin,pxPerM:W*0.05};
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const G=geo();
+  const dm=m1-M2, bal=dm===0;
+  const a=Math.abs(dm)*g/(m1+M2), T=2*m1*M2*g/(m1+M2), Fp=2*T;
+  // ceiling
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.moveTo(W*0.16,G.ceil);sx.lineTo(W*0.84,G.ceil);sx.stroke();
+  sx.strokeStyle='rgba(27,35,72,.45)';sx.lineWidth=1.4;
+  for(let x=W*0.18;x<W*0.84;x+=11){sx.beginPath();sx.moveTo(x,G.ceil);sx.lineTo(x-7,G.ceil-7);sx.stroke();}
+  // axle support
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.4;sx.beginPath();sx.moveTo(G.Pcx,G.ceil);sx.lineTo(G.Pcx,G.Pcy);sx.stroke();
+
+  // blocks
+  const y1=G.y1_0+o, y2=G.y2_0-o;
+  rrect(G.xL-G.s1/2,y1,G.s1,G.s1,5);sx.fillStyle='#d3def0';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();
+  rrect(G.xR-G.s2/2,y2,G.s2,G.s2,5);sx.fillStyle='#f0e2c8';sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();
+  tag(m1+' kg',G.xL,y1+G.s1/2,'#1b2348','center',11);
+  tag(M2+' kg',G.xR,y2+G.s2/2,'#7a5b13','center',11);
+
+  // ropes (tangent to rim) + wrap
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(G.xL,G.Pcy);sx.lineTo(G.xL,y1);sx.stroke();
+  sx.beginPath();sx.moveTo(G.xR,G.Pcy);sx.lineTo(G.xR,y2);sx.stroke();
+  sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP,Math.PI,Math.PI*2);sx.stroke();
+  // pulley
+  sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(G.Pcx,G.Pcy,G.rP*0.28,0,7);sx.fillStyle='#1b2348';sx.fill();
+
+  // one arrow per block: the direction it actually moves
+  if(!bal){const col='#2fa84f',alen=H*0.12,wd=3.8;
+    const mot=(ax,topy,s,down)=>{const mid=topy+s/2;
+      if(down)arrow(ax,mid-alen/2,0,alen,col,wd);else arrow(ax,mid+alen/2,0,-alen,col,wd);};
+    const leftDown=m1>M2;
+    mot(G.xL-G.s1/2-9,y1,G.s1,leftDown);
+    mot(G.xR+G.s2/2+9,y2,G.s2,!leftDown);}
+
+  // readouts
+  tag('a = '+a.toFixed(2).replace(/\.?0+$/,'')+' m/s\u00B2',W*0.05,H*0.115,'#2fa84f','left',13);
+  let dir=bal?'balanced - no motion':((dm>0?m1:M2)+' kg side falls');
+  tag(dir,W*0.05,H*0.16,bal?'#7A4FA3':'#1b2348','left',11);
+  tag('T = '+T.toFixed(1).replace(/\.0$/,'')+' N',W*0.95,H*0.115,'#185FA5','right',12.5);
+  tag('pulley 2T = '+Fp.toFixed(0)+' N',W*0.95,H*0.16,'#1b2348','right',11);
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(mode==='run'&&!stopped){
+    const G=geo(), dm=m1-M2;
+    if(dm===0){}
+    else{const a=dm*g/(m1+M2),aPx=a*G.pxPerM;t+=dt;o=0.5*aPx*t*t;v=aPx*t;
+      if(o>G.oMax){o=G.oMax;stopped=true;}
+      if(o<G.oMin){o=G.oMin;stopped=true;}}
+  }
+  draw();requestAnimationFrame(loop);}
+
+fbtns.addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b||mode!=='select')return;
+  m1=+b.dataset.m;[...fbtns.children].forEach(c=>c.classList.toggle('on',c===b));draw();});
+playB.addEventListener('click',()=>{mode='run';t=0;o=0;v=0;stopped=false;last=0;ctrls.classList.add('running');});
+resetB.addEventListener('click',()=>{mode='select';t=0;o=0;v=0;stopped=false;ctrls.classList.remove('running');draw();});
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>
