@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Velocity Components in Flight</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.pri{background:#2fa84f;color:#fff;border-color:#1d7a37}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Velocity Components in Flight</div>
+    <div class="sub">The sideways speed never changes, only the up-down speed does. Press play and watch u&#8339; stay fixed while u&#7497; shrinks to zero at the top, then grows downward.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="fpanel"><button class="fbtn pri" id="play">Play</button></div>
+  </div>
+  <div class="foot">Motion in a Plane &middot; Projectile Motion &middot; horizontal and vertical are independent</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const play=document.getElementById('play');
+let W=360,H=460;const ASPECT=0.74;
+const g=10, UX=12, UY=16, T=2*UY/g, TS=0.55;      // u = 20 m/s at 53 deg
+let t=0, last=0, running=false, finished=false;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.55);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t2,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t2,x,y);sx.fillStyle=col;sx.fillText(t2,x,y);}
+
+const R=UX*T, Hmax=UY*UY/(2*g);
+function geo(){const lx=W*0.10, groundY=H*0.50, fieldH=groundY-H*0.07, fieldW=W*0.86;
+  const PXM=Math.min(fieldW/(R*1.08), fieldH/(Hmax*1.18));
+  return {lx,groundY,PXM};}
+
+function draw(){sx.clearRect(0,0,W,H);const {lx,groundY,PXM}=geo();
+  const X=x=>lx+x*PXM, Y=y=>groundY-y*PXM;
+  // sky + ground
+  sx.fillStyle='#eef3f6';sx.fillRect(0,0,W,groundY);
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,groundY);sx.lineTo(W,groundY);sx.stroke();
+  sx.strokeStyle='#cdc6b6';sx.lineWidth=3;for(let i=0;i<W/ (W*0.08);i++){const px=i*W*0.08+W*0.02;sx.beginPath();sx.moveTo(px,groundY+3);sx.lineTo(px,groundY+H*0.016);sx.stroke();}
+  // full path (faint) + apex marker
+  sx.strokeStyle='#c4cad8';sx.lineWidth=2;sx.setLineDash([4,5]);sx.beginPath();
+  for(let tt=0;tt<=T+1e-6;tt+=T/60){const xx=UX*tt, yy=UY*tt-0.5*g*tt*tt;tt===0?sx.moveTo(X(xx),Y(yy)):sx.lineTo(X(xx),Y(yy));}
+  sx.stroke();sx.setLineDash([]);
+  // ax=0, ay=g legend (kept low and compact)
+  tag('a\u2093 = 0',W*0.71,H*0.245,'#8a8f80','center',11,800);
+  arrow(W*0.86,H*0.235,0,H*0.022,'#E24B4A',3.2); tag('a\u1D67 = g',W*0.86,H*0.215,'#E24B4A','center',10.5,800);
+  // current ball state
+  const tc=Math.min(t,T), xx=UX*tc, yy=Math.max(0,UY*tc-0.5*g*tc*tc), uyNow=UY-g*tc;
+  const bx=X(xx), by=Y(yy), vs=W*0.006;
+  // traced path so far (solid)
+  sx.strokeStyle='#1D9E75';sx.lineWidth=2.5;sx.beginPath();
+  for(let tt=0;tt<=tc+1e-6;tt+=Math.max(T/120,0.02)){const X2=UX*tt,Y2=UY*tt-0.5*g*tt*tt;tt===0?sx.moveTo(X(X2),Y(Y2)):sx.lineTo(X(X2),Y(Y2));}
+  sx.stroke();
+  // component arrows on the ball
+  arrow(bx,by,UX*vs,0,'#1D9E75',4.4); tag('u\u2093',bx+UX*vs+W*0.02,by,'#1D9E75','left',11,800);
+  if(Math.abs(uyNow)>0.3){const dy=-uyNow*vs; arrow(bx,by,0,dy,'#185FA5',4.4);
+    tag('u\u1D67',bx-W*0.03,by+dy*0.5,'#185FA5','right',11,800);}
+  // ball
+  sx.beginPath();sx.arc(bx,by,W*0.022,0,7);sx.fillStyle='#E0892A';sx.fill();sx.lineWidth=2;sx.strokeStyle='#9c5e16';sx.stroke();
+  // readout panel
+  const ry=H*0.64;
+  tag('u\u2093 = '+UX+' m/s   (never changes,  a\u2093 = 0)',W*0.5,ry,'#1D9E75','center',12,800);
+  tag('u\u1D67 = '+(uyNow>=0?' ':'')+uyNow.toFixed(0)+' m/s   (changes,  a\u1D67 = g down)',W*0.5,ry+H*0.09,'#185FA5','center',12,800);
+  let phase = tc<=0?'on the launch':(uyNow>0.3?'rising: u\u1D67 shrinking':(uyNow<-0.3?'falling: u\u1D67 growing downward':'top point: u\u1D67 = 0'));
+  tag(phase,W*0.5,ry+H*0.18,'#1b2348','center',11,800);
+}
+
+function updatePlay(){const r=running||finished;play.textContent=r?'Reset':'Play';play.classList.toggle('pri',!r);}
+function resetState(){running=false;finished=false;t=0;updatePlay();draw();}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(running){t+=dt*TS; if(t>=T){t=T;running=false;finished=true;updatePlay();}}
+  draw();requestAnimationFrame(loop);}
+play.addEventListener('click',()=>{if(running||finished)resetState();else{running=true;updatePlay();}});
+window.addEventListener('resize',fit);
+fit();updatePlay();requestAnimationFrame(loop);
+</script></body></html>

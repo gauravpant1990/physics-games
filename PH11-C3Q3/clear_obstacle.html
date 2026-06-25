@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Clear the Obstacle</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .msg{text-align:center;font-size:12px;font-weight:800;color:var(--navy);margin-bottom:7px;min-height:16px}
+  .msg.ok{color:#1d7a37}.msg.no{color:#c0392b}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:7px}
+  .opt{font-family:inherit;font-size:13px;font-weight:800;padding:10px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .opt.on{background:#185FA5;color:#fff;border-color:#0f3f70}
+  .fbtn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:10px 0;border-radius:9px;border:2px solid var(--navy);background:#2fa84f;color:#fff;border-color:#1d7a37;cursor:pointer}
+  .fbtn.reset{background:#fff;color:var(--navy)}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Clear the Obstacle</div>
+    <div class="sub">Same speed every time (u = 25 m/s). A tall wall blocks the low throw. Pick the angle that arcs over the wall and still lands on the target.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="msg" id="msg">Choose an angle, then press Play</div>
+    <div class="grid" id="grid"></div>
+    <button class="fbtn" id="play">Play</button>
+  </div>
+  <div class="foot">Motion in a Plane &middot; Complementary Angles &middot; same range, different height</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const play=document.getElementById('play'), grid=document.getElementById('grid'), msg=document.getElementById('msg');
+let W=360,H=480;const ASPECT=0.62, g=10, U=25, TOL=1.9;
+const WALLX=20, WALLH=12, TARGET=25*25*Math.sin(120*Math.PI/180)/g;   // 54.1 m (range at 30/60 deg)
+const ANG=[30,45,53,60];
+const rad=d=>d*Math.PI/180;
+function range(th){return U*U*Math.sin(rad(2*th))/g;}
+function tof(th){return 2*U*Math.sin(rad(th))/g;}
+function yAt(th,x){const c=Math.cos(rad(th));return x*Math.tan(rad(th))-g*x*x/(2*U*U*c*c);}
+let sel=-1, t=0, last=0, running=false, finished=false, result=null, passed=false, hitPt=null, parts=[];
+
+ANG.forEach((th,i)=>{const b=document.createElement('button');b.className='opt';b.dataset.i=i;b.textContent=th+'\u00b0';grid.appendChild(b);});
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function tag(t2,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t2,x,y);sx.fillStyle=col;sx.fillText(t2,x,y);}
+
+const Xmax=Math.max(...ANG.map(range),TARGET)*1.10;
+const Ymax=Math.max(...ANG.map(th=>Math.pow(U*Math.sin(rad(th)),2)/(2*g)))*1.18;
+function geo(){const lx=W*0.08, groundY=H*0.74, fieldH=groundY-H*0.08, fieldW=W*0.89;
+  const PXM=Math.min(fieldW/Xmax, fieldH/Ymax);return {lx,groundY,PXM};}
+
+function draw(){sx.clearRect(0,0,W,H);const {lx,groundY,PXM}=geo();
+  const X=x=>lx+x*PXM, Y=y=>groundY-y*PXM;
+  sx.fillStyle='#eef3f6';sx.fillRect(0,0,W,groundY);
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,groundY);sx.lineTo(W,groundY);sx.stroke();
+  for(let d=10;d<Xmax;d+=10){const px=X(d);sx.strokeStyle='#cdc6b6';sx.lineWidth=2;sx.beginPath();sx.moveTo(px,groundY+2);sx.lineTo(px,groundY+H*0.013);sx.stroke();
+    tag(d+'',px,groundY+H*0.03,'#9aa0ac','center',8,700);}
+  // launcher
+  sx.fillStyle='#1b2348';sx.fillRect(lx-W*0.02,groundY-H*0.018,W*0.04,H*0.018);
+  // wall
+  const wx=X(WALLX), wtop=Y(WALLH), ww=W*0.03;
+  sx.fillStyle='#8a8f80';sx.fillRect(wx-ww/2,wtop,ww,groundY-wtop);
+  sx.strokeStyle='#5f6354';sx.lineWidth=1.5;sx.strokeRect(wx-ww/2,wtop,ww,groundY-wtop);
+  tag('wall '+WALLH+' m',wx,wtop-H*0.02,'#5f6354','center',9.5,800);
+  // target
+  const tx=X(TARGET);
+  sx.fillStyle='#1D9E75';sx.beginPath();sx.ellipse(tx,groundY-2,W*0.032,H*0.011,0,0,7);sx.fill();
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(tx,groundY-2);sx.lineTo(tx,groundY-H*0.065);sx.stroke();
+  sx.fillStyle='#E24B4A';sx.beginPath();sx.moveTo(tx,groundY-H*0.065);sx.lineTo(tx+W*0.045,groundY-H*0.052);sx.lineTo(tx,groundY-H*0.04);sx.closePath();sx.fill();
+  tag('target',tx,groundY-H*0.082,'#1b2348','center',9.5,800);
+  // chosen trajectory
+  if(sel>=0){const th=ANG[sel],Tt=tof(th),tc=Math.min(t,Tt);
+    const tEnd=(running||finished)?tc:Tt;
+    sx.strokeStyle=(result==='wall'||result==='miss')?'#d98a8a':'#185FA5';sx.lineWidth=2.6;sx.setLineDash((running||finished)?[]:[5,5]);sx.beginPath();
+    let started=false;
+    for(let tt=0;tt<=tEnd+1e-6;tt+=Tt/90){const xx=U*Math.cos(rad(th))*tt; if(hitPt&&xx>WALLX)break;
+      const yy=Math.max(0,U*Math.sin(rad(th))*tt-0.5*g*tt*tt);started?sx.lineTo(X(xx),Y(yy)):sx.moveTo(X(xx),Y(yy));started=true;}
+    sx.stroke();sx.setLineDash([]);
+    if(running||finished){let bx,by;
+      if(hitPt){bx=X(hitPt.x);by=Y(hitPt.y);}
+      else{const xx=U*Math.cos(rad(th))*tc, yy=Math.max(0,U*Math.sin(rad(th))*tc-0.5*g*tc*tc);bx=X(xx);by=Y(yy);}
+      sx.beginPath();sx.arc(bx,by,W*0.019,0,7);sx.fillStyle='#E0892A';sx.fill();sx.lineWidth=2;sx.strokeStyle='#9c5e16';sx.stroke();}}
+  parts.forEach(p=>{sx.globalAlpha=Math.max(0,p.life);sx.fillStyle=p.col;sx.beginPath();sx.arc(p.x,p.y,p.r,0,7);sx.fill();sx.globalAlpha=1;});
+  if(finished){const ok=result==='hit';tag(ok?'Over and on target!':(result==='wall'?'Hit the wall!':'Missed the target'),
+    W*0.5,H*0.12,ok?'#1d7a37':'#c0392b','center',15.5,800);}
+}
+
+function spawn(x,y){parts=[];for(let i=0;i<26;i++){const a=Math.random()*7,s=W*(0.004+Math.random()*0.012);
+  parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-W*0.006,r:W*(0.006+Math.random()*0.006),life:1,col:['#1D9E75','#ffcf33','#2fa84f'][i%3]});}}
+function setMsg(){if(finished){if(result==='hit'){msg.textContent='Over the wall and on target, the higher angle wins';msg.className='msg ok';}
+    else if(result==='wall'){msg.textContent='That arc is too low, it slams into the wall';msg.className='msg no';}
+    else{const d=range(ANG[sel])-TARGET;msg.textContent='Cleared the wall but '+(d>0?'overshot':'fell short')+' by '+Math.abs(d).toFixed(1)+' m';msg.className='msg no';}}
+  else if(sel<0){msg.textContent='Choose an angle, then press Play';msg.className='msg';}
+  else{msg.textContent='Ready: \u03b8 = '+ANG[sel]+'\u00b0, u = '+U+' m/s';msg.className='msg';}}
+function updateBtn(){play.textContent=(running||finished)?'Reset':'Play';play.classList.toggle('reset',running||finished);}
+function reset(){running=false;finished=false;result=null;passed=false;hitPt=null;t=0;parts=[];updateBtn();setMsg();draw();}
+
+[...grid.children].forEach(b=>b.addEventListener('click',()=>{if(running)return;if(finished)reset();
+  sel=+b.dataset.i;[...grid.children].forEach(c=>c.classList.toggle('on',c===b));setMsg();draw();}));
+play.addEventListener('click',()=>{if(running||finished){reset();return;}
+  if(sel<0){msg.textContent='Pick an angle first';msg.className='msg no';return;}
+  running=true;t=0;result=null;passed=false;hitPt=null;updateBtn();});
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(running){const th=ANG[sel],Tt=tof(th);t+=dt*0.6;
+    const xc=U*Math.cos(rad(th))*t;
+    if(!passed && xc>=WALLX){const yw=yAt(th,WALLX);
+      if(yw<WALLH){running=false;finished=true;result='wall';hitPt={x:WALLX,y:Math.max(0,yw)};updateBtn();setMsg();}
+      else passed=true;}
+    if(running && t>=Tt){t=Tt;running=false;finished=true;const r=range(th);
+      result=Math.abs(r-TARGET)<TOL?'hit':'miss';
+      if(result==='hit'){const{lx,groundY,PXM}=geo();spawn(lx+r*PXM,groundY-2);}
+      updateBtn();setMsg();}}
+  if(parts.length){parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=W*0.0006;p.life-=0.018;});parts=parts.filter(p=>p.life>0);}
+  draw();requestAnimationFrame(loop);}
+window.addEventListener('resize',fit);
+fit();updateBtn();setMsg();requestAnimationFrame(loop);
+</script></body></html>
