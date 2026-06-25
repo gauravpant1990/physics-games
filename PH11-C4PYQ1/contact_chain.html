@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Contact Forces in a Pushed Chain</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .rd{text-align:center;font-size:12.5px;font-weight:800;color:var(--navy);margin-bottom:7px}
+  .lab{display:flex;justify-content:space-between;font-size:10px;color:#8a8f9c;font-weight:700;margin-top:5px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:7px;border-radius:6px;
+    background:linear-gradient(90deg,#c8d4e4 0%,#185FA5 100%);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+    background:#fff;border:3px solid var(--navy);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--navy);cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Contact Forces in a Pushed Chain</div>
+    <div class="sub">Slide the push F. All three blocks speed up together, and both contact forces, A to B and B to C, grow with F, always in the ratio 3 : 1.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="rd" id="rd">applied push F = 14 N &nbsp;&rarr;&nbsp; a = 2 m/s&sup2;</div>
+    <input type="range" id="sl" min="7" max="28" step="3.5" value="14">
+    <div class="lab"><span>gentle push</span><span>hard push</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Contact Forces &middot; force handed down a row of blocks</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const sl=document.getElementById('sl'), rd=document.getElementById('rd');
+let W=360,H=414;const ASPECT=0.90;
+const mA=4,mB=2,mC=1, MT=mA+mB+mC;
+let F=14, mt=0, vel=0, scroll=0, last=0, geo=null;
+function aNow(){return F/MT;}
+function fmt(x){return Math.abs(x-Math.round(x))<1e-6?String(Math.round(x)):x.toFixed(1);}
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(12,L*0.55);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function rrect(x,y,w,h,r,fill,stroke,lw){sx.beginPath();sx.moveTo(x+r,y);sx.arcTo(x+w,y,x+w,y+h,r);
+  sx.arcTo(x+w,y+h,x,y+h,r);sx.arcTo(x,y+h,x,y,r);sx.arcTo(x,y,x+w,y,r);sx.closePath();
+  if(fill){sx.fillStyle=fill;sx.fill();}if(stroke){sx.strokeStyle=stroke;sx.lineWidth=lw||2;sx.stroke();}}
+
+function layout(){const x0=W*0.20, u=(W*0.70)/MT, top=H*0.44, h=H*0.20, floorY=top+h;
+  const A={x:x0,w:mA*u}, B={x:x0+mA*u,w:mB*u}, C={x:x0+(mA+mB)*u,w:mC*u};
+  return {top,h,floorY,A,B,C};}
+
+function joinForce(cx,force,top,h,floorY){
+  sx.strokeStyle='#d3dae6';sx.lineWidth=1.6;sx.setLineDash([4,4]);
+  sx.beginPath();sx.moveTo(cx,top-H*0.075);sx.lineTo(cx,floorY-2);sx.stroke();sx.setLineDash([]);
+  const yf=top-H*0.05, L=W*0.04+(force/12)*W*0.085;
+  arrow(cx,yf,L,0,'#185FA5',5);
+  tag(fmt(force)+' N',cx+L*0.5,top-H*0.125,'#185FA5','center',12.5,800);
+}
+
+function draw(){sx.clearRect(0,0,W,H);geo=layout();const{top,h,floorY,A,B,C}=geo;
+  const a=aNow(), AB=(mB+mC)*a, BC=mC*a;
+  // floor + scrolling ground (camera rides with the blocks)
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(W*0.06,floorY);sx.lineTo(W*0.96,floorY);sx.stroke();
+  const sp=W*0.09, off=((scroll%sp)+sp)%sp;
+  sx.strokeStyle='#cdc6b6';sx.lineWidth=3;
+  for(let i=-1;i<W/sp+2;i++){const px=W*0.06+i*sp-off;if(px>W*0.05&&px<W*0.95){sx.beginPath();sx.moveTo(px,floorY+3);sx.lineTo(px,floorY+H*0.02);sx.stroke();}}
+  // acceleration label (top)
+  arrow(W*0.5-W*0.06,H*0.10,W*0.12,0,'#1b2348',2.8); tag('a',W*0.5+W*0.10,H*0.10,'#1b2348','left',11.5);
+  // blocks
+  function blk(b,label,mass){rrect(b.x,top,b.w,h,4,'#e7ecf5','#1b2348',2.4);
+    tag(label,b.x+b.w/2,top+h*0.40,'#1b2348','center',Math.max(11,b.w*0.16),800);
+    tag(mass+' kg',b.x+b.w/2,top+h*0.70,'#5b6172','center',Math.max(9.5,b.w*0.11),700);}
+  blk(A,'A',4);blk(B,'B',2);blk(C,'C',1);
+  // applied push F (length grows with F)
+  const LF=W*0.05+(F/28)*W*0.12;
+  arrow(A.x-LF-W*0.012,top+h*0.5, LF,0,'#E0892A',5); tag('F = '+fmt(F)+' N',A.x-LF*0.5-W*0.012,top+h*0.5-H*0.05,'#E0892A','center',11);
+  // BOTH contact forces, shown permanently
+  joinForce(A.x+A.w, AB, top,h,floorY);   // A | B
+  joinForce(B.x+B.w, BC, top,h,floorY);   // B | C
+  // small join captions
+  tag('A\u2013B',A.x+A.w,floorY+H*0.05,'#8a8f9c','center',9.5,700);
+  tag('B\u2013C',B.x+B.w,floorY+H*0.05,'#8a8f9c','center',9.5,700);
+}
+
+sl.addEventListener('input',()=>{const v=parseFloat(sl.value);if(v!==F){F=v;
+  if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(10);}
+  rd.innerHTML='applied push F = '+fmt(F)+' N &nbsp;&rarr;&nbsp; a = '+fmt(aNow())+' m/s&sup2;';});
+window.addEventListener('resize',fit);
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  mt+=dt; vel=Math.min(aNow()*mt,12); scroll+=vel*W*0.05*dt; draw(); requestAnimationFrame(loop);}
+fit(); requestAnimationFrame(loop);
+</script></body></html>

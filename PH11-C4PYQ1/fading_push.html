@@ -1,0 +1,119 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fading Push, Rising Speed</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.pri{background:#2fa84f;color:#fff;border-color:#1d7a37}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Fading Push, Rising Speed</div>
+    <div class="sub">A push that fades away, F = F&#8320;e&#8315;&#7495;&#7511;, still speeds the block up the whole time. It just climbs toward a top speed and stops gaining.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="fpanel"><button class="fbtn pri" id="play">Play</button></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Time-varying Force &middot; a decaying push never slows the body</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const play=document.getElementById('play');
+let W=360,H=414;const ASPECT=1.20;
+const F0=12, m=2, b=0.5, vInf=F0/(m*b), TMAX=9, TSC=1.4;
+let t=0, v=0, gx=0, last=0, running=false, finished=false, tr=[];
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(13,L*0.55);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t2,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t2,x,y);sx.fillStyle=col;sx.fillText(t2,x,y);}
+function rrect(x,y,w,h,r,fill,stroke,lw){sx.beginPath();sx.moveTo(x+r,y);sx.arcTo(x+w,y,x+w,y+h,r);
+  sx.arcTo(x+w,y+h,x,y+h,r);sx.arcTo(x,y+h,x,y,r);sx.arcTo(x,y,x+w,y,r);sx.closePath();
+  if(fill){sx.fillStyle=fill;sx.fill();}if(stroke){sx.strokeStyle=stroke;sx.lineWidth=lw||2;sx.stroke();}}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const F=F0*Math.exp(-b*t), fF=F/F0, fV=v/vInf;
+  // ---- scene ----
+  const floorY=H*0.34, bw=W*0.15, bh=H*0.085, bx=W*0.5-bw/2, by=floorY-bh;
+  sx.fillStyle='#eef3f6';sx.fillRect(0,0,W,floorY);
+  // scrolling floor ticks (camera follows block, so speed shows as scroll)
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,floorY);sx.lineTo(W,floorY);sx.stroke();
+  const sp=W*0.12, off=((gx%sp)+sp)%sp;
+  sx.strokeStyle='#b9b09a';sx.lineWidth=3;
+  for(let i=-1;i<W/sp+2;i++){const px=i*sp-off;sx.beginPath();sx.moveTo(px,floorY+3);sx.lineTo(px,floorY+H*0.018);sx.stroke();}
+  // speed lines behind the block
+  if(v>0.2){sx.strokeStyle='rgba(29,158,117,'+Math.min(0.5,v/vInf*0.55)+')';sx.lineWidth=2.4;
+    for(let i=0;i<3;i++){const y=by+bh*(0.25+i*0.28);const ln=W*0.03+fV*W*0.10;
+      sx.beginPath();sx.moveTo(bx-W*0.02-i*7,y);sx.lineTo(bx-W*0.02-i*7-ln,y);sx.stroke();}}
+  // block
+  rrect(bx,by,bw,bh,5,'#dfe7f2','#1b2348',2.4);
+  // push arrow (red, shrinks) on the left face
+  const pmax=W*0.18, pl=Math.max(0,fF)*pmax;
+  if(pl>2){arrow(bx-pl-W*0.01,by+bh*0.62, pl,0,'#E24B4A',5); tag('push',bx-pl*0.5-W*0.01,by+bh*0.62-H*0.025,'#E24B4A','center',10.5);}
+  else tag('push gone',bx-W*0.12,by+bh*0.62,'#E24B4A','center',10);
+  // speed arrow (green, grows) above the block
+  const vmax=W*0.20, vl=Math.min(1,fV)*vmax;
+  if(vl>2){arrow(W*0.5,by-H*0.03, vl,0,'#1D9E75',5); tag('speed',W*0.5+vl*0.5,by-H*0.03-H*0.024,'#1D9E75','center',10.5);}
+
+  // ---- chart ----
+  const cx0=W*0.15,cx1=W*0.93,cy0=H*0.55,cy1=H*0.93, chH=cy1-cy0;
+  sx.strokeStyle='#cfcabd';sx.lineWidth=1.6;
+  sx.beginPath();sx.moveTo(cx0,cy0-H*0.01);sx.lineTo(cx0,cy1);sx.lineTo(cx1,cy1);sx.stroke();
+  tag('time',( cx0+cx1)/2,cy1+H*0.022,'#8a8f9c','center',10,700);
+  // top-speed asymptote
+  sx.strokeStyle='#1D9E75';sx.lineWidth=1.6;sx.setLineDash([5,4]);
+  sx.beginPath();sx.moveTo(cx0,cy0);sx.lineTo(cx1,cy0);sx.stroke();sx.setLineDash([]);
+  tag('top speed',cx1-W*0.01,cy0-H*0.016,'#1D9E75','right',9.5,700);
+  const X=tt=>cx0+(tt/TMAX)*(cx1-cx0);
+  // curves
+  function curve(key,col){sx.strokeStyle=col;sx.lineWidth=3;sx.lineCap='round';sx.beginPath();
+    tr.forEach((p,i)=>{const x=X(p.t),y=cy1-p[key]*chH;i?sx.lineTo(x,y):sx.moveTo(x,y);});sx.stroke();}
+  curve('fF','#E24B4A');   // push falling
+  curve('fV','#1D9E75');   // speed rising
+  // now-line + dots
+  if(tr.length){const p=tr[tr.length-1],nx=X(p.t);
+    sx.strokeStyle='#c9cdd6';sx.lineWidth=1.4;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(nx,cy0-H*0.01);sx.lineTo(nx,cy1);sx.stroke();sx.setLineDash([]);
+    sx.fillStyle='#E24B4A';sx.beginPath();sx.arc(nx,cy1-p.fF*chH,3.4,0,7);sx.fill();
+    sx.fillStyle='#1D9E75';sx.beginPath();sx.arc(nx,cy1-p.fV*chH,3.4,0,7);sx.fill();}
+  tag('PUSH',cx0+W*0.02,cy0+chH*0.22,'#E24B4A','left',10.5);
+  tag('SPEED',cx0+W*0.02,cy1-chH*0.16,'#1D9E75','left',10.5);
+}
+
+function updatePlay(){const r=running||finished;play.textContent=r?'Reset':'Play';play.classList.toggle('pri',!r);}
+function resetState(){running=false;finished=false;t=0;v=0;gx=0;tr=[];updatePlay();draw();}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(running){const tt=dt*TSC; t+=tt; const F=F0*Math.exp(-b*t); v+=(F/m)*tt; gx+=v*W*0.045*tt;
+    tr.push({t:Math.min(t,TMAX),fF:F/F0,fV:v/vInf});
+    if(t>=TMAX){t=TMAX;running=false;finished=true;updatePlay();}}
+  draw();requestAnimationFrame(loop);}
+play.addEventListener('click',()=>{if(running||finished)resetState();else{running=true;updatePlay();}});
+window.addEventListener('resize',fit);
+fit();updatePlay();requestAnimationFrame(loop);
+</script></body></html>

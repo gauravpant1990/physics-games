@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Apparent Weight in a Lift</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .lab{display:flex;justify-content:space-between;font-size:10px;color:#8a8f9c;font-weight:700;margin-top:5px}
+  .rd{text-align:center;font-size:12.5px;font-weight:800;color:var(--navy);margin-bottom:7px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:7px;border-radius:6px;
+    background:linear-gradient(90deg,#185FA5 0%,#8a8f80 50%,#E24B4A 100%);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+    background:#fff;border:3px solid var(--navy);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--navy);cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Apparent Weight in a Lift</div>
+    <div class="sub">Drag the lift's acceleration. The scale shows the normal force on you, your apparent weight, while your true weight never changes.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="rd" id="rd">lift acceleration a = 0 m/s&sup2; &middot; at rest</div>
+    <input type="range" id="sl" min="-10" max="10" step="0.1" value="0">
+    <div class="lab"><span>&minus;g (free fall)</span><span>0 (rest)</span><span>+g</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Apparent Weight &middot; normal force in an accelerating lift</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const sl=document.getElementById('sl'), rd=document.getElementById('rd');
+let W=360,H=414;const ASPECT=1.12;
+const m=60, g=10;
+let a=0, lastSnap=null, shScroll=0, last=0, clock=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(13,L*0.55);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function rrect(x,y,w,h,r,fill,stroke,lw){sx.beginPath();sx.moveTo(x+r,y);sx.arcTo(x+w,y,x+w,y+h,r);
+  sx.arcTo(x+w,y+h,x,y+h,r);sx.arcTo(x,y+h,x,y,r);sx.arcTo(x,y,x+w,y,r);sx.closePath();
+  if(fill){sx.fillStyle=fill;sx.fill();}if(stroke){sx.strokeStyle=stroke;sx.lineWidth=lw||2;sx.stroke();}}
+
+function person(cx,feetY,hh){ // simple standing figure, head height hh
+  const headR=hh*0.13, hipY=feetY-hh*0.46, shY=feetY-hh*0.72, headY=feetY-hh*0.86;
+  sx.strokeStyle='#1b2348';sx.fillStyle='#1b2348';sx.lineWidth=hh*0.05;sx.lineCap='round';sx.lineJoin='round';
+  sx.beginPath();sx.arc(cx,headY,headR,0,7);sx.fillStyle='#fff';sx.fill();sx.lineWidth=hh*0.045;sx.stroke();
+  sx.beginPath();sx.moveTo(cx,headY+headR);sx.lineTo(cx,hipY);sx.stroke();              // torso
+  sx.beginPath();sx.moveTo(cx,shY);sx.lineTo(cx-hh*0.16,hipY+hh*0.04);sx.moveTo(cx,shY);sx.lineTo(cx+hh*0.16,hipY+hh*0.04);sx.stroke(); // arms
+  sx.beginPath();sx.moveTo(cx,hipY);sx.lineTo(cx-hh*0.13,feetY);sx.moveTo(cx,hipY);sx.lineTo(cx+hh*0.13,feetY);sx.stroke(); // legs
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const N=Math.max(0,m*(g+a)), reading=Math.round(N/g), netF=N-m*g;
+  // ---- scene: lift shaft + cabin ----
+  const wallL=W*0.16, wallR=W*0.84, shTop=H*0.04, shBot=H*0.50;
+  sx.strokeStyle='#d8d2c4';sx.lineWidth=W*0.012;sx.beginPath();
+  sx.moveTo(wallL,shTop);sx.lineTo(wallL,shBot);sx.moveTo(wallR,shTop);sx.lineTo(wallR,shBot);sx.stroke();
+  // scrolling rungs on the rails show the lift actually moving
+  const rsp=H*0.05, roff=((shScroll%rsp)+rsp)%rsp;
+  sx.strokeStyle='#ebe5d7';sx.lineWidth=3;
+  for(let i=-1;i<(shBot-shTop)/rsp+1;i++){const ry=shTop+i*rsp+roff;if(ry>shTop+1&&ry<shBot-1){
+    sx.beginPath();sx.moveTo(wallL-W*0.022,ry);sx.lineTo(wallL+W*0.022,ry);sx.moveTo(wallR-W*0.022,ry);sx.lineTo(wallR+W*0.022,ry);sx.stroke();}}
+  const cx0=W*0.30,cx1=W*0.70,cy0=H*0.115,cy1=H*0.47;
+  // cables
+  sx.strokeStyle='#8a8f80';sx.lineWidth=2;sx.beginPath();
+  sx.moveTo(W*0.5,shTop);sx.lineTo(cx0+ (cx1-cx0)*0.30,cy0);sx.moveTo(W*0.5,shTop);sx.lineTo(cx0+(cx1-cx0)*0.70,cy0);sx.stroke();
+  // cabin
+  rrect(cx0,cy0,cx1-cx0,cy1-cy0,6,'#f7f5ef','#1b2348',2.6);
+  // scale readout panel (clean white, on-brand)
+  const pw=(cx1-cx0)*0.80, px=W*0.5-pw/2, py=cy0+H*0.022, ph=H*0.07;
+  rrect(px,py,pw,ph,7,'#ffffff','#1b2348',2);
+  const cyR=py+ph*0.52; sx.textBaseline='middle';
+  sx.font='800 '+Math.round(H*0.046)+'px Trebuchet MS,sans-serif';sx.textAlign='right';sx.fillStyle='#185FA5';
+  sx.fillText(String(reading),W*0.5+W*0.012,cyR);
+  sx.font='700 '+Math.round(H*0.023)+'px Trebuchet MS,sans-serif';sx.textAlign='left';sx.fillStyle='#5b6172';
+  sx.fillText('kg',W*0.5+W*0.03,cyR+H*0.006);
+  // weighing platform
+  const platY=cy1-H*0.018, platX0=W*0.41, platX1=W*0.59;
+  rrect(platX0,platY,platX1-platX0,H*0.018,3,'#d9d4c8','#8a8f80',1.6);
+  // in free fall the person lifts off the scale (no contact, N = 0)
+  const floatGap=(N<1)?(H*0.034+Math.sin(clock*3)*H*0.006):0;
+  person(W*0.5, platY-floatGap, H*0.165);
+  // acceleration arrow beside the cabin
+  const ax=W*0.78, apY=H*0.29, la=Math.abs(a)/g*H*0.16;
+  if(Math.abs(a)>0.05){const dir=a>0?-1:1; arrow(ax,apY,0,dir*la,'#1b2348',6);
+    tag('a',ax+W*0.035,apY+dir*la*0.5,'#1b2348','left',13,800);}
+  else tag('a = 0',ax+W*0.01,apY,'#8a8f80','left',11,800);
+  tag('true weight = '+m+' kg',W*0.5,cy1+H*0.022,'#8a8f9c','center',10,700);
+
+  // ---- divider + FBD ----
+  tag('FREE BODY OF THE PERSON',W*0.5,H*0.535,'#1b2348','center',11);
+  const fcx=W*0.5, fcy=H*0.76, fs=(H*0.088)/(m*g), bw=W*0.15, bh=H*0.058;
+  // person as a simple box (keeps the arrows clean)
+  rrect(fcx-bw/2,fcy-bh/2,bw,bh,7,'#eef1f7','#1b2348',2.4);
+  tag('you',fcx,fcy,'#1b2348','center',11.5,800);
+  // mg down: true weight, never changes
+  arrow(fcx,fcy+bh/2,0,m*g*fs,'#E24B4A',4.6);
+  tag('mg = 600 N',fcx,fcy+bh/2+m*g*fs+H*0.02,'#E24B4A','center',10.5,800);
+  // N up: support force = what the scale reads
+  if(N>1){ arrow(fcx,fcy-bh/2,0,-N*fs,'#185FA5',4.8);
+    tag('N = '+Math.round(N)+' N',fcx-W*0.045,fcy-bh/2-N*fs*0.5,'#185FA5','right',11,800); }
+  else tag('N = 0',fcx-W*0.045,fcy-bh/2-H*0.02,'#185FA5','right',11,800);
+  // net = ma, drawn to the side as the resultant
+  const netX=fcx+W*0.25;
+  if(Math.abs(netF)>1){const dir=netF>0?-1:1, nl=Math.abs(netF)*fs;
+    arrow(netX,fcy,0,dir*nl,'#1D9E75',5);
+    tag('net = ma',netX+W*0.025,fcy+dir*nl*0.5-H*0.014,'#1D9E75','left',10.5,800);
+    tag(Math.round(Math.abs(netF))+' N',netX+W*0.025,fcy+dir*nl*0.5+H*0.013,'#1D9E75','left',10,700);}
+  else{sx.beginPath();sx.arc(netX,fcy,W*0.028,0,7);sx.strokeStyle='#1D9E75';sx.lineWidth=2.4;sx.setLineDash([4,4]);sx.stroke();sx.setLineDash([]);
+    tag('net = 0',netX,fcy-W*0.05,'#1D9E75','center',10.5,800);}
+  // dynamic takeaway
+  let cap;
+  if(N<1)cap='N = 0  \u2192  free fall, you feel weightless';
+  else if(netF>1)cap='N > mg  \u2192  net is up, you feel heavier';
+  else if(netF<-1)cap='N < mg  \u2192  net is down, you feel lighter';
+  else cap='N = mg  \u2192  balanced, your normal weight';
+  tag(cap,W*0.5,H*0.955,'#1b2348','center',10.5,800);
+}
+
+const MARKS=[-10,-5,0,5,10];
+function label(v){if(v<=-10)return 'free fall, weightless';if(v===0)return 'at rest, true weight';
+  if(v>0)return 'accelerating up, feels heavier';return 'accelerating down, feels lighter';}
+sl.addEventListener('input',()=>{
+  let v=parseFloat(sl.value);
+  for(const mk of MARKS){if(Math.abs(v-mk)<0.6){v=mk;break;}}
+  if(v!==a){a=v; if(MARKS.includes(v)&&lastSnap!==v&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(12);
+    lastSnap=MARKS.includes(v)?v:null;}
+  rd.innerHTML='lift acceleration a = '+(a%1===0?a:a.toFixed(1))+' m/s&sup2; &middot; '+label(a);
+  draw();});
+window.addEventListener('resize',fit);
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts; clock+=dt;
+  shScroll += (Math.abs(a)>0.05?a:0)*H*0.03*dt;     // rails scroll the way the lift accelerates
+  draw(); requestAnimationFrame(loop);}
+fit(); requestAnimationFrame(loop);
+</script></body></html>
