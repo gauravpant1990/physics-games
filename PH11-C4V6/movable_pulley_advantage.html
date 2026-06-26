@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Compound Pulleys and the Pull</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .seg{display:flex;gap:7px;align-items:center}
+  .seg label{font-size:12px;font-weight:800;color:var(--navy);margin-right:2px}
+  .seg button{flex:1;font-family:inherit;font-size:14px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .seg button.on{background:#1b2348;color:#ffcf33;border-color:#1b2348}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Compound Pulleys and the Pull</div>
+    <div class="sub">Hang each pulley from the rope of the one above. Every rope is vertical, so each pulley halves the tension again and the pull keeps dropping. Pick how many.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="seg"><label>pulleys</label>
+      <button data-n="1" class="on">1</button><button data-n="2">2</button>
+      <button data-n="3">3</button><button data-n="4">4</button></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Pulley &middot; compound pulleys and the effort</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const btns=[...document.querySelectorAll('.seg button')];
+let W=360,H=468;const ASPECT=1.30, WT=800;
+let N=1;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function strand(ax,ay,bx,by){sx.lineCap='round';sx.strokeStyle='#7d4f25';sx.lineWidth=5;sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(bx,by);sx.stroke();
+  sx.strokeStyle='#bb8047';sx.lineWidth=2.8;sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(bx,by);sx.stroke();}
+function pulley(x,y,r){sx.beginPath();sx.arc(x,y,r,0,7);sx.fillStyle='#e9e3d6';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.beginPath();sx.arc(x,y,r*0.28,0,7);sx.fillStyle='#1b2348';sx.fill();}
+function frac(k){return 'W/'+Math.pow(2,k);}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const r=W*0.044, dy=H*0.105, beamY=H*0.13, y1=H*0.47;
+  const x1=W*0.40-(N-1)*r/2;
+  const P=[];for(let i=0;i<N;i++)P.push({x:x1+i*r, y:y1-i*dy});   // step right by exactly r -> vertical links
+  // ceiling
+  sx.fillStyle='#8a8f80';sx.fillRect(W*0.05,beamY-H*0.02,W*0.90,H*0.02);
+  for(let i=0;i<11;i++){sx.strokeStyle='#6f7466';sx.lineWidth=1;sx.beginPath();sx.moveTo(W*0.06+i*W*0.082,beamY-H*0.02);sx.lineTo(W*0.06+i*W*0.082+W*0.02,beamY);sx.stroke();}
+  // ALL strands vertical
+  for(let i=0;i<N;i++){const p=P[i];
+    strand(p.x-r,p.y,p.x-r,beamY);                       // left strand to ceiling (vertical)
+    sx.beginPath();sx.arc(p.x-r,beamY,W*0.011,0,7);sx.fillStyle='#1b2348';sx.fill();
+    if(i<N-1){strand(p.x+r,p.y,p.x+r,P[i+1].y+r);}        // right strand up to next axle (vertical: next x = p.x+r)
+  }
+  // effort: vertical strand up to a fixed pulley, then free end straight down
+  const top=P[N-1], fr=W*0.02, inX=top.x+r, fpx=inX+fr;
+  strand(inX,top.y,inX,beamY);
+  // movable pulley bodies + over-top wrap + axle hooks
+  for(let i=0;i<N;i++){const p=P[i];
+    sx.strokeStyle='#bb8047';sx.lineWidth=2.8;sx.beginPath();sx.arc(p.x,p.y,r,0,Math.PI,true);sx.stroke();
+    pulley(p.x,p.y,r);
+    sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(p.x,p.y+r);sx.lineTo(p.x,p.y+r+H*0.012);sx.stroke();}
+  // fixed pulley + free end + pull
+  sx.strokeStyle='#bb8047';sx.lineWidth=2.8;sx.beginPath();sx.arc(fpx,beamY,fr,0,Math.PI,true);sx.stroke();
+  pulley(fpx,beamY,fr);
+  const ex=fpx+fr, pull=WT/Math.pow(2,N), fs=0.00024*W;
+  strand(ex,beamY,ex,beamY+H*0.03);
+  arrow(ex,beamY+H*0.03,0,pull*fs,'#1D9E75',5);
+  tag('pull',ex+W*0.035,beamY+H*0.03+pull*fs*0.5,'#1D9E75','left',11,800);
+  // load under the bottom pulley (vertical)
+  const loadY=P[0].y+r+H*0.07;
+  strand(P[0].x,P[0].y+r,P[0].x,loadY-H*0.02);
+  sx.fillStyle='#185FA5';sx.strokeStyle='#0f3f70';sx.lineWidth=2.5;sx.beginPath();sx.rect(P[0].x-W*0.06,loadY-H*0.02,W*0.12,H*0.045);sx.fill();sx.stroke();
+  tag('W = '+WT+' N',P[0].x,loadY+H*0.042,'#E24B4A','center',12,800);
+  // tension labels up the chain
+  for(let i=0;i<N;i++){tag(frac(i+1),P[i].x-r-W*0.05,P[i].y,'#7d4f25','center',10.5,800);}
+  // headline
+  tag('every pulley halves the pull',W*0.5,H*0.73,'#1b2348','center',12,800);
+  tag('you pull  =  W \u00f7 '+Math.pow(2,N)+'  =  '+Math.round(pull)+' N',W*0.5,H*0.79,'#1D9E75','center',16,800);
+  tag('that is 1/'+Math.pow(2,N)+' of the weight',W*0.5,H*0.832,'#1d7a37','center',12.5,800);
+  // bar comparison
+  const by=H*0.91, full=W*0.30;
+  sx.fillStyle='#E24B4A';sx.fillRect(W*0.18,by-H*0.018,full,H*0.022);
+  sx.fillStyle='#1D9E75';sx.fillRect(W*0.18,by+H*0.012,Math.max(2,full/Math.pow(2,N)),H*0.022);
+  tag('weight',W*0.18+full+W*0.03,by-H*0.007,'#E24B4A','left',10,800);
+  tag('your pull',W*0.18+full+W*0.03,by+H*0.023,'#1D9E75','left',10,800);
+}
+btns.forEach(b=>b.addEventListener('click',()=>{N=+b.dataset.n;btns.forEach(c=>c.classList.toggle('on',c===b));draw();}));
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>

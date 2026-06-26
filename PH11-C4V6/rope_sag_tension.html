@@ -1,0 +1,104 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Tension in a Sagging Rope</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl label{font-size:12px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:24px}
+  .val{font-size:13px;font-weight:800;color:#185FA5;min-width:42px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Tension in a Sagging Rope</div>
+    <div class="sub">A load hangs at the middle of a rope. Flatten the rope and watch the tension shoot up, far past the weight itself.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>rope angle</label>
+      <input type="range" id="ang" min="6" max="60" step="1" value="30">
+      <span class="val" id="angv">30&deg;</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Tension &middot; rope angle and tension</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const ang=document.getElementById('ang'),angv=document.getElementById('angv');
+let W=360,H=468;const ASPECT=1.30, WT=800;   // load = 80 kg, g = 10
+let theta=30;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(12,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const th=theta*Math.PI/180, cx=W*0.5, ay=H*0.20, L=W*0.31;
+  const d=L*Math.tan(th), vx=cx, vy=ay+d;
+  const aLx=cx-L, aRx=cx+L;
+  const T=WT/(2*Math.sin(th));
+  // anchors (posts)
+  sx.fillStyle='#1b2348';
+  sx.fillRect(aLx-W*0.022,ay-H*0.04,W*0.044,H*0.04);
+  sx.fillRect(aRx-W*0.022,ay-H*0.04,W*0.044,H*0.04);
+  tag('fixed',aLx,ay-H*0.055,'#8a8f80','center',9.5,700);tag('fixed',aRx,ay-H*0.055,'#8a8f80','center',9.5,700);
+  // horizontal reference at anchor line
+  sx.strokeStyle='#cfc7b6';sx.lineWidth=1.5;sx.setLineDash([4,5]);
+  sx.beginPath();sx.moveTo(aLx,ay);sx.lineTo(aRx,ay);sx.stroke();sx.setLineDash([]);
+  // rope
+  sx.strokeStyle='#7d4f25';sx.lineWidth=7;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(aLx,ay);sx.lineTo(vx,vy);sx.lineTo(aRx,ay);sx.stroke();
+  sx.strokeStyle='#bb8047';sx.lineWidth=4;
+  sx.beginPath();sx.moveTo(aLx,ay);sx.lineTo(vx,vy);sx.lineTo(aRx,ay);sx.stroke();
+  // angle arc at vertex (between horizontal and rope going up-right)
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.arc(vx,vy,W*0.085,-th,0);sx.stroke();
+  tag(theta+'\u00b0',vx+W*0.13,vy-W*0.045,'#1b2348','left',12,800);
+  // load hanging at vertex
+  sx.beginPath();sx.arc(vx,vy+H*0.034,W*0.032,0,7);sx.fillStyle='#E0892A';sx.fill();
+  sx.lineWidth=2;sx.strokeStyle='#9c5e16';sx.stroke();
+  sx.beginPath();sx.moveTo(vx,vy);sx.lineTo(vx,vy+H*0.018);sx.strokeStyle='#7d4f25';sx.lineWidth=3;sx.stroke();
+  // forces at the knot (static): two tensions along rope, weight down
+  const fs=0.00019*W, capT=W*0.27, sgn=th;
+  let tl=Math.min(capT,T*fs);
+  arrow(vx,vy,-Math.cos(sgn)*tl,-Math.sin(sgn)*tl,'#185FA5',4);
+  arrow(vx,vy, Math.cos(sgn)*tl,-Math.sin(sgn)*tl,'#185FA5',4);
+  const wl=Math.min(W*0.16,WT*fs*1.0); arrow(vx,vy,0,WT*0.00019*W,'#E24B4A',4);
+  tag('T',vx-tl*Math.cos(sgn)-W*0.03,vy-tl*Math.sin(sgn),'#185FA5','right',11,800);
+  tag('T',vx+tl*Math.cos(sgn)+W*0.03,vy-tl*Math.sin(sgn),'#185FA5','left',11,800);
+  tag('W',vx+W*0.035,vy+WT*0.00019*W*0.6,'#E24B4A','left',11,800);
+  // readout panel
+  const ry=H*0.80;
+  tag('T = '+Math.round(T)+' N',W*0.5,ry,'#185FA5','center',19,800);
+  tag('weight W = 800 N',W*0.5,ry+H*0.058,'#E24B4A','center',12,800);
+  const mult=(T/WT);
+  tag('that is '+mult.toFixed(1)+' \u00d7 the weight',W*0.5,ry+H*0.108,'#1b2348','center',12,800);
+}
+ang.addEventListener('input',()=>{theta=+ang.value;angv.textContent=theta+'\u00b0';draw();});
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>
