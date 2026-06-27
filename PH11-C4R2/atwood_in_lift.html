@@ -1,0 +1,129 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Atwood Machine in a Falling Lift</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .ctl label{font-size:12px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:24px}
+  .val{font-size:13px;font-weight:800;color:#185FA5;min-width:64px;text-align:right}
+  .btn{width:100%;font-family:inherit;font-size:13.5px;font-weight:800;padding:9px 0;border-radius:9px;
+    border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Atwood Machine in a Falling Lift</div>
+    <div class="sub">Set how fast the lift falls, then press Play. The faster it falls, the weaker gravity feels inside (g&nbsp;&minus;&nbsp;a), so the masses race more slowly. In free fall they float.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>lift falls at</label>
+      <input type="range" id="acc" min="0" max="10" step="1" value="2">
+      <span class="val" id="accv">2 m/s&sup2;</span></div>
+    <button id="go" class="btn">Play</button>
+  </div>
+  <div class="foot">Laws of Motion &middot; Pseudo force &middot; effective gravity g&nbsp;&minus;&nbsp;a inside a lift</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const acc=document.getElementById('acc'),accv=document.getElementById('accv'),go=document.getElementById('go');
+let W=360,H=475;const ASPECT=1.32, g=10, M1=8, M2=2, DUR=170;
+let A=2, p=0, mode='ready';   // ready | playing | done
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function rrect(x,y,w,h,r){sx.beginPath();sx.moveTo(x+r,y);sx.arcTo(x+w,y,x+w,y+h,r);sx.arcTo(x+w,y+h,x,y+h,r);
+  sx.arcTo(x,y+h,x,y,r);sx.arcTo(x,y,x+w,y,r);sx.closePath();}
+function block(cx,topY,w,h,lab,side){
+  sx.fillStyle='#185FA5';sx.fillRect(cx-w/2,topY,w,h);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(cx-w/2,topY,w,h);
+  tag(lab,side<0?cx-w/2-W*0.02:cx+w/2+W*0.02,topY+h/2,'#1b2348',side<0?'right':'left',11,800);}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const a=A, geff=Math.max(0,g-a), arel=(M1-M2)/(M1+M2)*geff, free=(geff<=0.001);
+  const shaftScroll=a*0.12*H*p*p;                       // lift falling (accelerating)
+  const relDisp=(arel/6)*(H*0.09)*p*p;                  // masses moving relative to lift
+  const x0=W*0.23,x1=W*0.77,yT=H*0.10,yB=H*0.60, cx=(x0+x1)/2, shaftB=H*0.64;
+
+  // ---- shaft rails + scrolling floor ticks (the falling cue) ----
+  const xL=W*0.085,xR=W*0.915;
+  sx.strokeStyle='#d7d0c0';sx.lineWidth=3;
+  sx.beginPath();sx.moveTo(xL,0);sx.lineTo(xL,shaftB);sx.stroke();
+  sx.beginPath();sx.moveTo(xR,0);sx.lineTo(xR,shaftB);sx.stroke();
+  const sp=H*0.06; let soff=shaftScroll%sp; if(soff<0)soff+=sp;
+  sx.strokeStyle='#c6bfac';sx.lineWidth=3;
+  for(let y=-soff;y<shaftB+sp;y+=sp){
+    sx.beginPath();sx.moveTo(xL,y);sx.lineTo(xL+W*0.04,y);sx.stroke();
+    sx.beginPath();sx.moveTo(xR,y);sx.lineTo(xR-W*0.04,y);sx.stroke();}
+
+  // hoist cable
+  sx.strokeStyle='#8a8f80';sx.lineWidth=3;sx.beginPath();sx.moveTo(cx,0);sx.lineTo(cx,yT);sx.stroke();
+  // cabin
+  rrect(x0,yT,x1-x0,yB-yT,12);sx.fillStyle='#fbfaf7';sx.fill();sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.stroke();
+  // lift acceleration marker (left margin)
+  if(a>0.1){const aL=a/g*H*0.12;arrow(W*0.16,yT+H*0.03,0,aL,'#7A4FA3',4.2);
+    tag('a',W*0.16,yT+H*0.03+aL+H*0.02,'#7A4FA3','center',10.5,800);}
+  else tag('still',W*0.16,yT+H*0.05,'#7A4FA3','center',9.5,700);
+
+  // pulley + rope + masses
+  const pY=yT+H*0.085, r=W*0.07, baseTop=H*0.35, bh1=H*0.10, bh2=H*0.072;
+  const leftTop=baseTop+relDisp, rightTop=baseTop-relDisp;
+  sx.strokeStyle='#bb8047';sx.lineWidth=4;
+  sx.beginPath();sx.moveTo(cx-r,pY);sx.lineTo(cx-r,leftTop);sx.stroke();
+  sx.beginPath();sx.moveTo(cx+r,pY);sx.lineTo(cx+r,rightTop);sx.stroke();
+  sx.fillStyle='#e8e2d4';sx.beginPath();sx.arc(cx,pY,r,0,7);sx.fill();sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.fillStyle='#1b2348';sx.beginPath();sx.arc(cx,pY,r*0.22,0,7);sx.fill();
+  block(cx-r,leftTop,W*0.13,bh1,'8 kg',-1);
+  block(cx+r,rightTop,W*0.085,bh2,'2 kg',+1);
+  // motion arrows relative to lift (sized by a_rel)
+  if(!free){const ms=arel/6*H*0.045+H*0.012;
+    arrow(cx-r,leftTop+bh1+H*0.006,0,ms,'#1D9E75',4);
+    arrow(cx+r,rightTop-H*0.006,0,-ms,'#1D9E75',4);}
+  else{tag('weightless',cx,baseTop+H*0.02,'#7A4FA3','center',12,800);
+       tag('they float',cx,baseTop+H*0.055,'#7A4FA3','center',10,700);}
+
+  // readouts
+  const ry=H*0.70;
+  tag('gravity inside   g \u2212 a = '+geff+' m/s\u00b2',W*0.5,ry,'#7A4FA3','center',13,800);
+  if(!free) tag('a\u1d63\u2091\u2097 = (8\u22122)/(8+2) \u00d7 g\u2091\u2093 = '+arel.toFixed(1)+' m/s\u00b2',W*0.5,ry+H*0.052,'#1D9E75','center',13.5,800);
+  else tag('a\u1d63\u2091\u2097 = 0 : nothing moves relative to the lift',W*0.5,ry+H*0.052,'#c0392b','center',12,800);
+  // bars g vs g_eff
+  const byb=H*0.85, sc=W*0.50/10;
+  sx.fillStyle='#c8c2b4';sx.fillRect(W*0.22,byb-H*0.016,g*sc,H*0.02);
+  sx.fillStyle='#7A4FA3';sx.fillRect(W*0.22,byb+H*0.012,geff*sc,H*0.02);
+  tag('g = 10',W*0.22+g*sc+W*0.02,byb-H*0.006,'#8a8f80','left',9.5,800);
+  tag('g\u2091\u2093 = '+geff,W*0.22+Math.max(geff*sc,2)+W*0.02,byb+H*0.022,'#7A4FA3','left',9.5,800);
+}
+function loop(){if(mode==='playing'){p+=1/DUR;if(p>=1){p=1;mode='done';}}draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{
+  if(mode==='ready'){mode='playing';go.textContent='Reset';}
+  else{mode='ready';p=0;go.textContent='Play';}});
+acc.addEventListener('input',()=>{A=+acc.value;accv.innerHTML=A+' m/s&sup2;';mode='ready';p=0;go.textContent='Play';draw();});
+window.addEventListener('resize',fit);
+fit();loop();
+</script></body></html>
