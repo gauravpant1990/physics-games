@@ -1,0 +1,138 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>The Tilted Bob Reads a</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy);letter-spacing:.2px}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.on{background:var(--navy);color:var(--gold)}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">The Tilted Bob Reads the Acceleration</div>
+    <div class="sub">A bob hangs inside an accelerating train. It settles at tan&theta; = a/g. Below is its free body, drawn steady so the forces stay clear.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="fpanel" id="fbtns">
+      <button class="fbtn on" data-f="ground">Ground frame</button>
+      <button class="fbtn" data-f="train">Train frame</button>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Pseudo Force &middot; tan&theta; = a/g</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fbtns=document.getElementById('fbtns');
+let W=360,H=425;const ASPECT=1.18;
+const m=2, g=10, a=7.5;          // tan37 = 0.75  ->  theta = 37 deg, T = 25 N
+const TH=Math.atan2(a,g), ST=Math.sin(TH), CT=Math.cos(TH);
+let frame='ground', x=0, v=0, last=0;
+let A,xMax;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);
+  A=W*0.11; xMax=W*1.40;}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd,dash){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(12,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.setLineDash(dash?[5,4]:[]);
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.setLineDash([]);
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function rrect(x,y,w,h,r){sx.beginPath();sx.roundRect(x,y,w,h,r);}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const ground = frame==='ground';
+  // ===== top: small looping train, pendulum INSIDE =====
+  const railY=H*0.300;
+  // rail + ties (fixed in ground frame, scroll in train frame)
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,railY);sx.lineTo(W,railY);sx.stroke();
+  const PS=W*0.10, poff=ground?0:(x%PS);
+  sx.strokeStyle='#b9b09a';sx.lineWidth=3;
+  for(let i=-1;i<W/PS+2;i++){const px=i*PS-poff;sx.beginPath();sx.moveTo(px,railY+3);sx.lineTo(px,railY+H*0.022);sx.stroke();}
+
+  const carW=W*0.30, carH=H*0.155;
+  const carLeft = ground ? (-carW-W*0.02 + x) : (W-carW)/2;
+  const carY0=railY-carH-H*0.022, carY1=railY-H*0.022;
+  // speed lines
+  if(v>0.05){sx.strokeStyle='rgba(27,35,72,'+Math.min(0.4,v/W*0.8)+')';sx.lineWidth=2;
+    for(let i=0;i<3;i++){const y=carY0+(0.3+i*0.22)*carH;const ln=W*0.03+v/W*W*0.09;
+      const bxs=carLeft-W*0.015-(ground?i*7:((x*1.4+i*23)%(W*0.14)));sx.beginPath();sx.moveTo(bxs,y);sx.lineTo(bxs-ln,y);sx.stroke();}}
+  // wheels
+  for(const wf of [0.28,0.72]){const wx=carLeft+carW*wf;sx.beginPath();sx.arc(wx,carY1+H*0.013,H*0.013,0,7);sx.fillStyle='#1b2348';sx.fill();}
+  // wagon
+  rrect(carLeft,carY0,carW,carH,8);sx.fillStyle='#eef1f7';sx.fill();sx.lineWidth=2.2;sx.strokeStyle='#1b2348';sx.stroke();
+  // pendulum inside, hanging from interior ceiling
+  const ax=carLeft+carW*0.5, ay=carY0+H*0.014, Ls=carH*0.66;
+  const sbx=ax-Ls*ST, sby=ay+Ls*CT;
+  sx.setLineDash([3,3]);sx.strokeStyle='#c2c7d2';sx.lineWidth=1.1;sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(ax,ay+Ls);sx.stroke();sx.setLineDash([]);
+  sx.strokeStyle='#7d4f25';sx.lineWidth=1.8;sx.lineCap='round';sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(sbx,sby);sx.stroke();
+  sx.beginPath();sx.arc(sbx,sby,W*0.016,0,7);sx.fillStyle='#185FA5';sx.fill();sx.lineWidth=1.4;sx.strokeStyle='#0e3d6e';sx.stroke();
+  // acceleration shown inside the animation
+  arrow(W*0.5-W*0.09,H*0.085,W*0.18,0,'#185FA5',3);
+  tag('a = '+a+' m/s\u00B2',W*0.5,H*0.052,'#185FA5','center',11);
+  tag(ground?'the train accelerates past you':'you ride along, the ground slips back',W*0.5,H*0.345,'#8a8f80','center',9.5);
+
+  // ===== readouts + divider =====
+  const deg=TH*180/Math.PI;
+  tag('FREE BODY OF THE BOB  \u00b7  '+(ground?'GROUND FRAME':'TRAIN FRAME'),W*0.5,H*0.415,'#1b2348','center',11.5);
+
+  // ===== bottom: steady free-body diagram (drawn large and well spaced) =====
+  const cx=W*0.5, cy=H*0.64, rB=W*0.032;
+  const fs=(H*0.13)/(m*g);                 // scale so that mg maps to 0.13 H
+  const mg=m*g, ma=m*a, T=m*Math.hypot(g,a);
+  const Lmg=mg*fs, Lma=ma*fs, LT=T*fs;
+  // context: vertical reference, string direction, angle arc
+  sx.setLineDash([3,3]);sx.strokeStyle='#aab0be';sx.lineWidth=1.3;
+  sx.beginPath();sx.moveTo(cx,cy);sx.lineTo(cx,cy-(rB+LT));sx.stroke();sx.setLineDash([]);
+  sx.strokeStyle='#c9a06a';sx.lineWidth=2;
+  sx.beginPath();sx.moveTo(cx,cy);sx.lineTo(cx+(rB+LT)*ST,cy-(rB+LT)*CT);sx.stroke();
+  sx.strokeStyle='#1b2348';sx.lineWidth=1.5;sx.beginPath();sx.arc(cx,cy,H*0.062,-Math.PI/2,-Math.PI/2+TH);sx.stroke();
+  tag(deg.toFixed(0)+'\u00B0',cx+H*0.130*Math.sin(TH/2),cy-H*0.130*Math.cos(TH/2),'#1b2348','center',10.5);
+  // the bob
+  sx.beginPath();sx.arc(cx,cy,rB,0,7);sx.fillStyle='#185FA5';sx.fill();sx.lineWidth=2;sx.strokeStyle='#0e3d6e';sx.stroke();
+  sx.beginPath();sx.arc(cx-rB*0.32,cy-rB*0.32,rB*0.32,0,7);sx.fillStyle='rgba(255,255,255,.5)';sx.fill();
+
+  if(ground){
+    arrow(cx,cy+rB,0,Lmg,'#E24B4A',4.2);            tag('mg',cx,cy+rB+Lmg+H*0.030,'#E24B4A','center',12);
+    arrow(cx,cy-rB,0,-Lmg,'#185FA5',3.6,true);      tag('T cos\u03b8 = mg',cx-W*0.05,cy-rB-Lmg*0.55,'#185FA5','right',10.5);
+    arrow(cx+rB,cy,Lma,0,'#185FA5',3.6,true);       tag('T sin\u03b8 = ma',cx+W*0.10,cy+H*0.036,'#185FA5','left',10);
+    tag('net force = ma, forward  \u2192  it accelerates',W*0.5,H*0.95,'#185FA5','center',10.5);
+  }else{
+    arrow(cx+ST*rB,cy-CT*rB,ST*LT,-CT*LT,'#185FA5',4);  tag('T',cx+ST*(rB+LT)+W*0.026,cy-CT*(rB+LT),'#185FA5','left',12.5);
+    arrow(cx-rB,cy,-Lma,0,'#7A4FA3',4.2);               tag('pseudo = ma',cx-rB-Lma-W*0.02,cy-H*0.030,'#7A4FA3','right',10.5);
+    arrow(cx,cy+rB,0,Lmg,'#E24B4A',4.2);                tag('mg',cx,cy+rB+Lmg+H*0.030,'#E24B4A','center',12);
+    tag('the three balance  \u2192  the bob hangs still',W*0.5,H*0.95,'#7A4FA3','center',10.5);
+  }
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  v+=A*dt; x+=v*dt; if(x>xMax){x=0;v=0;}     // loop: train re-enters from the left
+  draw();requestAnimationFrame(loop);}
+
+fbtns.addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b)return;frame=b.dataset.f;
+  [...fbtns.children].forEach(c=>c.classList.toggle('on',c===b));draw();});
+window.addEventListener('resize',fit);
+fit();requestAnimationFrame(loop);
+</script></body></html>
