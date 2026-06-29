@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Aim Straight, Land Low</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:380px;max-width:96vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px;margin:3px 0}
+  .ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap;min-width:64px}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}
+  .val{font-size:12px;font-weight:800;color:#185FA5;min-width:54px;text-align:right}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer;margin-top:4px}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Aim Straight, Land Low</div>
+    <div class="sub">The arrow is aimed dead level at the bullseye, yet it drops the whole way and lands below. Gravity pulls it down every second it flies.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>speed</label><input type="range" id="v" min="20" max="80" step="1" value="25"><span class="val" id="vv">25 m/s</span></div>
+    <div class="ctl"><label>distance</label><input type="range" id="d" min="15" max="60" step="1" value="50"><span class="val" id="dv">50 m</span></div>
+    <button class="btn" id="go">Shoot</button>
+  </div>
+  <div class="foot">Motion in a Plane &middot; Projectile &middot; level aim still falls H = &frac12;gt&sup2;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const vE=document.getElementById('v'),dE=document.getElementById('d'),vv=document.getElementById('vv'),dv=document.getElementById('dv'),go=document.getElementById('go');
+let W=380,H=270;const ASPECT=0.71, G=10;
+let v=25,d=50,mode='ready',s=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const dd=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*dd);scn.height=Math.round(H*dd);sx.setTransform(dd,0,0,dd,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||380,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.96,380);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(200,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.6);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const xL=W*0.13,xR=W*0.86,launchY=H*0.30,availH=H*0.56,vS=availH/45;
+  const t=d/v, Hd=0.5*G*t*t, dropPx=Math.min(Hd,45)*vS;
+  // aim line
+  sx.strokeStyle='#b9b2a2';sx.lineWidth=1.6;sx.setLineDash([5,5]);sx.beginPath();sx.moveTo(xL,launchY);sx.lineTo(xR,launchY);sx.stroke();sx.setLineDash([]);
+  tag('aim line',W*0.5,launchY-H*0.045,'#8a8f80','center',10,700);
+  // path
+  sx.strokeStyle='#E0892A';sx.lineWidth=3;sx.lineCap='round';sx.beginPath();
+  for(let k=0;k<=40;k++){const ss=k/40,x=xL+(xR-xL)*ss,y=launchY+ss*ss*dropPx;if(k===0)sx.moveTo(x,y);else sx.lineTo(x,y);}sx.stroke();
+  // archer
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.arc(xL-W*0.02,launchY,H*0.05,-1.1,1.1);sx.stroke();
+  sx.fillStyle='#1b2348';sx.beginPath();sx.arc(xL,launchY-H*0.10,H*0.022,0,7);sx.fill();
+  sx.lineWidth=2;sx.beginPath();sx.moveTo(xL,launchY-H*0.078);sx.lineTo(xL,launchY+H*0.02);sx.stroke();
+  // bullseye
+  ['#E24B4A','#fff','#E24B4A'].forEach((c,i)=>{sx.fillStyle=c;sx.beginPath();sx.arc(xR,launchY,H*0.055-i*H*0.018,0,7);sx.fill();});
+  sx.lineWidth=2;sx.strokeStyle='#9c2f2e';sx.beginPath();sx.arc(xR,launchY,H*0.055,0,7);sx.stroke();
+  // drop arrow at target
+  arrow(xR+W*0.015,launchY,0,dropPx,'#185FA5',3);
+  tag('H = '+Hd.toFixed(1)+' m',xR-W*0.02,launchY+dropPx*0.5,'#185FA5','right',11,800);
+  // flying arrow marker
+  const ss=mode==='ready'?1:s, mx=xL+(xR-xL)*ss, my=launchY+ss*ss*dropPx;
+  sx.fillStyle='#7A4FA3';sx.beginPath();sx.arc(mx,my,H*0.02,0,7);sx.fill();
+  sx.lineWidth=2;sx.strokeStyle='#512f73';sx.stroke();
+  // landing readout
+  tag('however fast you shoot, gravity never lets it reach the centre',W*0.5,H*0.07,'#1b2348','center',10.5,800);
+  tag('it lands '+Hd.toFixed(1)+' m below the centre',W*0.5,H*0.93,'#5b6172','center',11.5,800);
+}
+function step(){if(mode==='playing'){s+=0.018;if(s>=1){s=1;mode='done';go.textContent='Reset';}draw();requestAnimationFrame(step);}}
+go.addEventListener('click',()=>{if(mode==='playing')return;if(mode==='done'){mode='ready';s=0;go.textContent='Shoot';draw();}
+  else{mode='playing';s=0;go.textContent='flying...';requestAnimationFrame(step);}});
+function upd(){v=+vE.value;d=+dE.value;vv.textContent=v+' m/s';dv.textContent=d+' m';mode='ready';s=0;go.textContent='Shoot';draw();}
+[vE,dE].forEach(e=>e.addEventListener('input',upd));
+window.addEventListener('resize',fit);
+upd();fit();
+</script></body></html>

@@ -35,11 +35,11 @@
 <script>
 const scn=document.getElementById('scene'),sx=scn.getContext('2d');
 const pull=document.getElementById('pull'),pullv=document.getElementById('pullv');
-let W=360,H=468;const ASPECT=1.30;
+let W=360,H=425;const ASPECT=1.18;
 const WT=1600, TH=37*Math.PI/180, ST=0.6, CT=0.8;
 const Wpar=WT*ST, N=WT*CT, FMAX=0.25*N;
 const LO=Wpar-FMAX, HI=Wpar+FMAX;
-let P=960, off=0, last=0;
+let P=960, scroll=0, last=0;
 
 function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
   scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
@@ -63,64 +63,57 @@ function state(){ if(P<LO-1) return 'down'; if(P>HI+1) return 'up'; return 'hold
 function friction(){ if(P<LO) return FMAX; if(P>HI) return -FMAX; return Wpar-P; }
 
 function draw(){sx.clearRect(0,0,W,H);
-  // ---- incline scene (clean: block + motion only) ----
-  const ax=W*0.12, by=H*0.39, base=W*0.60, hgt=base*Math.tan(TH);
+  const st=state();
+  // ---- scene: block on the 37 deg slope ----
+  const ax=W*0.10, by=H*0.50, base=W*0.66, hgt=base*Math.tan(TH);
   const A={x:ax,y:by}, B={x:ax+base,y:by}, C={x:ax+base,y:by-hgt};
   sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,by);sx.lineTo(W,by);sx.stroke();
   sx.beginPath();sx.moveTo(A.x,A.y);sx.lineTo(B.x,B.y);sx.lineTo(C.x,C.y);sx.closePath();
   sx.fillStyle='#e9e3d6';sx.fill();sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.stroke();
-  tag('37\u00b0',A.x+W*0.12,A.y-W*0.035,'#1b2348','left',12,800);
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.arc(A.x,A.y,W*0.15,-TH,0);sx.stroke();
+  tag('37\u00b0',A.x+W*0.185,A.y-W*0.052,'#1b2348','left',13,800);
   const up={x:CT,y:-ST}, down={x:-CT,y:ST}, nrm={x:-ST,y:-CT};
-  const st=state();
-  const f=0.50+off, bc={x:A.x+(C.x-A.x)*f,y:A.y+(C.y-A.y)*f};
-  const bw=W*0.085,bh=W*0.058,ctr={x:bc.x+nrm.x*(bh*0.5+2),y:bc.y+nrm.y*(bh*0.5+2)};
+  // scrolling ramp marks: camera follows the block, so the surface slides instead
+  const Ls=Math.hypot(C.x-A.x,C.y-A.y), ux2=(C.x-A.x)/Ls, uy2=(C.y-A.y)/Ls, sp=W*0.075;
+  const t0=((scroll%sp)+sp)%sp;
+  sx.fillStyle='#c3b596';
+  for(let t=t0;t<Ls-2;t+=sp){const dx=A.x+ux2*t-nrm.x*W*0.02, dy=A.y+uy2*t-nrm.y*W*0.02;
+    sx.beginPath();sx.arc(dx,dy,W*0.0072,0,7);sx.fill();}
+  const f=0.46, bc={x:A.x+(C.x-A.x)*f,y:A.y+(C.y-A.y)*f};
+  const bw=W*0.135,bh=W*0.088,ctr={x:bc.x+nrm.x*(bh*0.5+2),y:bc.y+nrm.y*(bh*0.5+2)};
   sx.save();sx.translate(ctr.x,ctr.y);sx.rotate(-TH);
   sx.fillStyle=st==='hold'?'#185FA5':(st==='down'?'#c0653a':'#2fa84f');
   sx.fillRect(-bw/2,-bh/2,bw,bh);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(-bw/2,-bh/2,bw,bh);
   sx.restore();
-  if(st!=='hold'){const d=st==='down'?down:up;arrow(ctr.x+nrm.x*W*0.055,ctr.y+nrm.y*W*0.055,d.x*W*0.11,d.y*W*0.11,st==='down'?'#c0392b':'#1d7a37',4);}
-  const txt=st==='hold'?'block holds':(st==='down'?'slips down':'pulled up');
+  // free-body arrows drawn on the block itself
+  const ps=0.00011*W, fr=friction();
+  arrow(ctr.x,ctr.y,up.x*P*ps,up.y*P*ps,'#185FA5',4.8);
+  tag('pull',ctr.x+up.x*(P*ps+W*0.055),ctr.y+up.y*(P*ps+W*0.055),'#185FA5','center',11.5,800);
+  arrow(ctr.x,ctr.y,down.x*Wpar*ps,down.y*Wpar*ps,'#E24B4A',4.4);
+  tag('weight',ctr.x+down.x*(Wpar*ps+W*0.085),ctr.y+down.y*(Wpar*ps+W*0.085),'#E24B4A','center',10.5,800);
+  if(Math.abs(fr)>4){const s=fr>0?1:-1, fax=ctr.x+nrm.x*W*0.095, fay=ctr.y+nrm.y*W*0.095;
+    arrow(fax,fay,up.x*s*Math.abs(fr)*ps,up.y*s*Math.abs(fr)*ps,'#5b6172',4.4);
+    tag('friction',fax+up.x*s*(Math.abs(fr)*ps+W*0.06)+nrm.x*W*0.015,fay+up.y*s*(Math.abs(fr)*ps+W*0.06)+nrm.y*W*0.015,'#5b6172','center',10.5,800);}
+  const txt=st==='hold'?'block holds still':(st==='down'?'slips down':'pulled up');
   const col=st==='hold'?'#1d7a37':(st==='down'?'#c0392b':'#1d7a37');
-  tag(txt,W*0.28,H*0.065,col,'center',15,800);
-  // ---- steady horizontal free-body diagram ----
-  sx.strokeStyle='#e4dccb';sx.lineWidth=1;sx.beginPath();sx.moveTo(W*0.08,H*0.435);sx.lineTo(W*0.92,H*0.435);sx.stroke();
-  tag('the tug along the slope',W*0.5,H*0.468,'#5b6172','center',10.5,700);
-  const O={x:W*0.5,y:H*0.56}, fs=0.000150*W;
-  sx.strokeStyle='#cfc7b6';sx.lineWidth=1.5;sx.beginPath();sx.moveTo(W*0.11,O.y);sx.lineTo(W*0.89,O.y);sx.stroke();
-  // friction first (above the axis), so labels never collide
-  const fr=friction();
-  if(Math.abs(fr)>4){const fy=O.y-H*0.05;arrow(O.x,fy,(fr>0?1:-1)*Math.abs(fr)*fs,0,'#8a8f80',4.4);
-    tag('friction',O.x+(fr>0?1:-1)*Math.abs(fr)*fs*0.5,fy-H*0.03,'#8a8f80','center',10.5,800);}
-  // block marker on the axis
-  sx.fillStyle=st==='hold'?'#185FA5':(st==='down'?'#c0653a':'#2fa84f');
-  sx.fillRect(O.x-W*0.024,O.y-W*0.024,W*0.048,W*0.048);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(O.x-W*0.024,O.y-W*0.024,W*0.048,W*0.048);
-  // pull (right) and W sin (left), labels below the axis, far apart
-  arrow(O.x+W*0.026,O.y,P*fs,0,'#185FA5',4.6); tag('pull',O.x+W*0.026+P*fs+W*0.04,O.y,'#185FA5','left',11,800);
-  arrow(O.x-W*0.026,O.y,-Wpar*fs,0,'#E24B4A',4.6); tag('W sin37\u00b0',O.x-W*0.026-Wpar*fs-W*0.04,O.y,'#E24B4A','right',11,800);
-  // ---- pull-force band line ----
-  const xL=W*0.10,xR=W*0.90,yB=H*0.715,maxP=1700, X=p=>xL+(xR-xL)*p/maxP;
+  tag(txt,W*0.5,H*0.08,col,'center',16,800);
+  // ---- the holding band ----
+  const xL=W*0.12,xR=W*0.88,yB=H*0.66,maxP=1700, X=p=>xL+(xR-xL)*p/maxP;
   sx.lineCap='round';
-  sx.strokeStyle='#c0392b';sx.lineWidth=7;sx.beginPath();sx.moveTo(xL,yB);sx.lineTo(X(LO),yB);sx.stroke();
+  sx.strokeStyle='#c0392b';sx.lineWidth=9;sx.beginPath();sx.moveTo(xL,yB);sx.lineTo(X(LO),yB);sx.stroke();
   sx.strokeStyle='#1D9E75';sx.beginPath();sx.moveTo(X(LO),yB);sx.lineTo(X(HI),yB);sx.stroke();
   sx.strokeStyle='#E0892A';sx.beginPath();sx.moveTo(X(HI),yB);sx.lineTo(xR,yB);sx.stroke();
-  [[LO,'640'],[HI,'1280']].forEach(([v,l])=>{sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(X(v),yB-H*0.017);sx.lineTo(X(v),yB+H*0.017);sx.stroke();
-    tag(l,X(v),yB+H*0.035,'#1b2348','center',10,800);});
-  sx.strokeStyle='#5b6172';sx.lineWidth=1.5;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(X(Wpar),yB-H*0.025);sx.lineTo(X(Wpar),yB+H*0.025);sx.stroke();sx.setLineDash([]);
-  tag('960 no friction',X(Wpar),yB-H*0.038,'#5b6172','center',9.5,700);
-  const px=X(P);arrow(px,yB-H*0.068,0,H*0.048,'#185FA5',4);
-  tag('slips down',xL+(X(LO)-xL)/2,yB+H*0.066,'#c0392b','center',9.5,700);
-  tag('holds',(X(LO)+X(HI))/2,yB+H*0.066,'#1d7a37','center',9.5,700);
-  tag('pulled up',(X(HI)+xR)/2,yB+H*0.066,'#c77a1e','center',9.5,700);
-  // readouts
-  tag('pull = '+P+' N',W*0.5,H*0.875,'#185FA5','center',13,800);
-  const fr2=friction();
-  tag(Math.abs(fr2)<5?'friction = 0':('friction = '+Math.round(Math.abs(fr2))+' N '+(fr2>0?'up the slope':'down the slope')),
-    W*0.5,H*0.925,'#5b6172','center',12,800);
+  [[LO,'640'],[HI,'1280']].forEach(([v,l])=>{sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(X(v),yB-H*0.02);sx.lineTo(X(v),yB+H*0.02);sx.stroke();
+    tag(l,X(v),yB+H*0.05,'#1b2348','center',11,800);});
+  const px=X(P);arrow(px,yB-H*0.082,0,H*0.056,'#185FA5',4.4);
+  tag('your pull  '+P+' N',px,yB-H*0.105,'#185FA5','center',11.5,800);
+  // ---- friction readout ----
+  tag(Math.abs(fr)<5?'friction = 0':('friction = '+Math.round(Math.abs(fr))+' N  '+(fr>0?'up the slope':'down the slope')),
+    W*0.5,H*0.85,'#5b6172','center',15,800);
 }
 function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;const st=state();
-  if(st==='down'){off-=0.18*dt; if(off<-0.34)off=0.30;}
-  else if(st==='up'){off+=0.18*dt; if(off>0.34)off=-0.30;}
-  else off+=(0-off)*Math.min(1,dt*6);
+  const mag=st==='down'?(LO-P):(st==='up'?(P-HI):0), v=Math.max(0,mag)*0.16;
+  if(st==='down') scroll+=v*dt; else if(st==='up') scroll-=v*dt;
   draw();requestAnimationFrame(loop);}
 pull.addEventListener('input',()=>{P=+pull.value;pullv.textContent=P+' N';});
 window.addEventListener('resize',fit);

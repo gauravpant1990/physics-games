@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Sideways and Up-Down are Separate</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:380px;max-width:96vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px;margin:3px 0}
+  .ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap;min-width:60px}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}
+  .val{font-size:12px;font-weight:800;color:#185FA5;min-width:52px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Sideways and Up-Down are Separate</div>
+    <div class="sub">Slide the probe through the flight. The sideways speed never changes; only the up-down speed does. Gravity touches one of them and not the other.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>probe</label><input type="range" id="t" min="0" max="1000" step="1" value="350"></div>
+  </div>
+  <div class="foot">Motion in a Plane &middot; Projectile &middot; horizontal and vertical are independent</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const tE=document.getElementById('t');
+let W=380,H=300;const ASPECT=0.79, G=10;
+const v=22,ang=55;let probe=0.35;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const dd=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*dd);scn.height=Math.round(H*dd);sx.setTransform(dd,0,0,dd,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||380,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.96,380);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(200,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.6);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(tx,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(tx,x,y);sx.fillStyle=col;sx.fillText(tx,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=ang*Math.PI/180, vx=v*Math.cos(th), vy0=v*Math.sin(th), T=2*vy0/G;
+  const R=vx*T, Hmax=vy0*vy0/(2*G);
+  const ox=W*0.13, oy=H*0.86, pw=W*0.74, ph=H*0.66;
+  const sX=pw/Math.max(R,1), sY=ph/Math.max(Hmax*1.15,1), sc=Math.min(sX,sY);
+  const PX=xm=>ox+xm*sc, PY=ym=>oy-ym*sc;
+  // axes
+  sx.strokeStyle='#b9b2a2';sx.lineWidth=1.6;sx.beginPath();sx.moveTo(ox,oy-ph-H*0.02);sx.lineTo(ox,oy);sx.lineTo(ox+pw+W*0.02,oy);sx.stroke();
+  // trajectory
+  sx.strokeStyle='#c2bdb0';sx.lineWidth=2.5;sx.beginPath();
+  for(let k=0;k<=60;k++){const t=T*k/60,x=vx*t,y=vy0*t-0.5*G*t*t;if(k===0)sx.moveTo(PX(x),PY(y));else sx.lineTo(PX(x),PY(y));}sx.stroke();
+  // probe instant
+  const t=probe*T, x=vx*t, y=Math.max(0,vy0*t-0.5*G*t*t), vy=vy0-G*t;
+  const px=PX(x),py=PY(y);
+  // projections
+  sx.strokeStyle='#d7d0c1';sx.lineWidth=1.3;sx.setLineDash([3,3]);
+  sx.beginPath();sx.moveTo(px,py);sx.lineTo(px,oy);sx.stroke();
+  sx.beginPath();sx.moveTo(px,py);sx.lineTo(ox,py);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle='#185FA5';sx.beginPath();sx.arc(px,oy,W*0.012,0,7);sx.fill();      // x-projection (constant speed)
+  sx.fillStyle='#E24B4A';sx.beginPath();sx.arc(ox,py,W*0.012,0,7);sx.fill();      // y-projection (accelerates)
+  // component arrows at the particle
+  const aS=W*0.0085;
+  arrow(px,py,vx*aS,0,'#185FA5',4.4);
+  tag('vx',px+vx*aS+W*0.03,py,'#185FA5','left',11,800);
+  arrow(px,py,0,-vy*aS,'#E24B4A',4.4);
+  tag('vy',px,py-vy*aS-(vy>=0?H*0.03:-H*0.03),'#E24B4A','center',11,800);
+  // particle
+  sx.fillStyle='#7A4FA3';sx.beginPath();sx.arc(px,py,W*0.016,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#512f73';sx.stroke();
+  // readouts
+  tag('vx = '+vx.toFixed(1)+' m/s  (never changes)',W*0.5,H*0.05,'#185FA5','center',12,800);
+  tag('vy = '+vy.toFixed(1)+' m/s  (keeps changing)',W*0.5,H*0.93,'#E24B4A','center',12,800);
+}
+function upd(){probe=+tE.value/1000;draw();}
+tE.addEventListener('input',upd);
+window.addEventListener('resize',fit);
+upd();fit();
+</script></body></html>
