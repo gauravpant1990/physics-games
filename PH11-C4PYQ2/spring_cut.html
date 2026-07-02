@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Cut the String</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:10px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Cut the String</div>
+    <div class="sub">Block A (m) hangs from a string with block B (2m) below on a spring. Cut the string: the spring force cannot change in that instant, so A drops at 3g while B waits.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="cut">Cut the string</button></div>
+  <div class="foot">Laws of Motion &middot; Spring force &middot; a spring force cannot change in an instant</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const cut=document.getElementById('cut');
+let W=360,H=468;const ASPECT=1.30;
+let mode='ready',sim=null;
+const K=30,LR=1.3333,SEP=2.0;    // spring: F=K(len-LR); equilibrium stretch gives F=2mg=20
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.55);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function spring(x,y1,y2){const n=6,dyv=(y2-y1)/n;sx.strokeStyle='#185FA5';sx.lineWidth=2.4;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y1);for(let i=0;i<n;i++){sx.lineTo(x+(i%2?-1:1)*W*0.03,y1+dyv*(i+0.5));}sx.lineTo(x,y2);sx.stroke();}
+function block(cx,cy,label){const w=W*0.16,h=W*0.10;sx.fillStyle='#7A4FA3';sx.fillRect(cx-w/2,cy-h/2,w,h);
+  sx.lineWidth=2;sx.strokeStyle='#512f73';sx.strokeRect(cx-w/2,cy-h/2,w,h);
+  tag(label,cx-w/2-W*0.05,cy,'#1b2348','center',12,800);}
+function draw(){sx.clearRect(0,0,W,H);
+  const cx=W*0.46, ceil=H*0.11, Ay0=H*0.30, By0=H*0.30+0.14*H*(SEP/2)*2, SCALE=(H*0.14), hA=W*0.10;
+  const By=H*0.30+SEP*(H*0.14);
+  const Ascr=mode==='ready'?Ay0:Ay0+sim.yA*SCALE;
+  const Bscr=mode==='ready'?By:Ay0+sim.yB*SCALE;
+  // ceiling
+  sx.fillStyle='#cfc7b6';sx.fillRect(W*0.12,ceil-H*0.02,W*0.76,H*0.022);
+  sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.strokeRect(W*0.12,ceil-H*0.02,W*0.76,H*0.022);
+  // start-position guides (during motion)
+  if(mode!=='ready'){
+    sx.strokeStyle='#d8b7b4';sx.lineWidth=1.4;sx.setLineDash([4,4]);
+    sx.beginPath();sx.moveTo(cx-W*0.16,Ay0);sx.lineTo(cx+W*0.16,Ay0);sx.stroke();
+    sx.strokeStyle='#a9c9bd';sx.beginPath();sx.moveTo(cx-W*0.16,By);sx.lineTo(cx+W*0.16,By);sx.stroke();sx.setLineDash([]);
+    tag('initial COM of A',cx+W*0.19,Ay0,'#c0653a','left',9.5,700);
+    tag('initial COM of B',cx+W*0.19,By,'#1d7a37','left',9.5,700);
+  }
+  // spring (length changes with the motion)
+  spring(cx,Ascr+hA/2,Bscr-hA/2);
+  // string
+  if(mode==='ready'){sx.strokeStyle='#1D9E75';sx.lineWidth=3;sx.beginPath();sx.moveTo(cx,ceil);sx.lineTo(cx,Ascr-hA/2);sx.stroke();}
+  else{sx.strokeStyle='#c9c2b3';sx.lineWidth=2;sx.setLineDash([3,4]);sx.beginPath();sx.moveTo(cx,ceil);sx.lineTo(cx,ceil+H*0.028);sx.stroke();sx.setLineDash([]);
+    tag('string cut',cx+W*0.02,ceil+H*0.016,'#c0653a','left',10,800);}
+  block(cx,Ascr,'A');block(cx,Bscr,'B');
+  const u=W*0.05;
+  if(mode==='ready'){
+    // balanced free-body diagram
+    arrow(cx,Ascr-hA/2,0,-u*3,'#1D9E75',4);tag('3mg',cx+W*0.04,Ascr-hA/2-u*3-H*0.012,'#1d7a37','left',10.5,800);
+    arrow(cx-W*0.05,Ascr,0,u*1,'#E24B4A',3.6);tag('mg',cx-W*0.05-W*0.03,Ascr+u*1,'#E24B4A','right',10,800);
+    arrow(cx+W*0.05,Ascr,0,u*2,'#185FA5',3.6);tag('2mg',cx+W*0.05+W*0.03,Ascr+u*2,'#185FA5','left',10,800);
+    arrow(cx-W*0.05,Bscr,0,u*2,'#E24B4A',3.6);tag('2mg',cx-W*0.05-W*0.03,Bscr+u*2,'#E24B4A','right',10,800);
+    arrow(cx+W*0.05,Bscr,0,-u*2,'#185FA5',3.6);tag('2mg',cx+W*0.05+W*0.03,Bscr-u*2,'#185FA5','left',10,800);
+    tag('spring holds B up with 2mg, string holds all of it',W*0.5,H*0.82,'#185FA5','center',11,800);
+    tag('everything balances, the system hangs at rest',W*0.5,H*0.875,'#1b2348','center',11.5,800);
+    tag('press cut to see the first moments',W*0.5,H*0.93,'#8a8f80','center',10.5,700);
+  }else{
+    const len=sim.yB-sim.yA, Fs=K*(len-LR);
+    const aA=(10+Fs)/10, aB=(10-Fs/2)/10;            // signed, units of g (down positive)
+    const asc=W*0.036, bw=W*0.16, axl=cx-bw/2-W*0.055;
+    if(Math.abs(aA)>0.05)arrow(axl,Ascr,0,aA*asc,'#E0892A',5);
+    tag('a = '+Math.abs(aA).toFixed(1)+'g',axl-W*0.03,Ascr+aA*asc*0.5,'#b06a18','right',10.5,800);
+    if(Math.abs(aB)>0.05)arrow(axl,Bscr,0,aB*asc,'#E0892A',5);
+    tag('a = '+Math.abs(aB).toFixed(1)+'g',axl-W*0.03,Bscr+aB*asc*0.5,'#b06a18','right',10.5,800);
+    tag('spring force = '+Math.abs(Fs/10).toFixed(1)+' mg',W*0.5,H*0.86,'#185FA5','center',11.5,800);
+    tag(Fs>0.5?'stretched spring pulls them together':(Fs<-0.5?'compressed spring pushes them apart':'spring relaxed, both fall at g'),
+        W*0.5,H*0.92,'#5b6172','center',11,700);
+  }
+}
+function loop(){if(mode!=='playing')return;
+  for(let s=0;s<10;s++){const len=sim.yB-sim.yA,Fs=K*(len-LR),aA=10+Fs,aB=10-Fs/2;
+    sim.vA+=aA*0.0006;sim.vB+=aB*0.0006;sim.yA+=sim.vA*0.0006;sim.yB+=sim.vB*0.0006;sim.tt+=0.0006;}
+  if(sim.tt>=0.46||(sim.yB-sim.yA)<0.6){mode='done';cut.textContent='Reset';draw();return;}
+  draw();requestAnimationFrame(loop);}
+cut.addEventListener('click',()=>{
+  if(mode==='playing')return;
+  if(mode==='done'){mode='ready';sim=null;cut.textContent='Cut the string';draw();}
+  else{sim={yA:0,yB:SEP,vA:0,vB:0,tt:0};mode='playing';cut.textContent='cutting...';requestAnimationFrame(loop);}
+});
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>

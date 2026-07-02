@@ -1,0 +1,90 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pull the String Sideways</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}
+  .val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:52px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Pull the String Sideways</div>
+    <div class="sub">A weight hangs from a string. Push the midpoint sideways and the upper part leans over. Its lean just compares your push with the weight.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>sideways pull</label><input type="range" id="f" min="0" max="200" step="5" value="100"><span class="val" id="fv">100 N</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Equilibrium &middot; tan(angle) = pull &divide; weight</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fE=document.getElementById('f'),fv=document.getElementById('fv');
+let W=360,H=468;const ASPECT=1.30, WT=100;   // 10 kg weight
+let F=100;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=Math.atan2(F,WT), T=Math.hypot(F,WT);
+  const ax=W*0.34, ceilY=H*0.13, Lu=H*0.27, Ll=H*0.17;
+  const kx=ax+Lu*Math.sin(th), ky=ceilY+Lu*Math.cos(th);   // knot
+  const mx=kx, my=ky+Ll;
+  // ceiling
+  sx.fillStyle='#cfc7b6';sx.fillRect(W*0.10,ceilY-H*0.02,W*0.62,H*0.022);
+  sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.strokeRect(W*0.10,ceilY-H*0.02,W*0.62,H*0.022);
+  // vertical reference
+  sx.strokeStyle='#c9c2b3';sx.lineWidth=1.4;sx.setLineDash([4,4]);sx.beginPath();sx.moveTo(ax,ceilY);sx.lineTo(ax,ceilY+Lu+H*0.02);sx.stroke();sx.setLineDash([]);
+  // angle arc at anchor
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.arc(ax,ceilY,H*0.075,Math.PI/2-th,Math.PI/2);sx.stroke();
+  tag(Math.round(th*180/Math.PI)+'\u00b0',ax+H*0.055*Math.sin(th/2),ceilY+H*0.055*Math.cos(th/2)+H*0.005,'#1b2348','center',12,800);
+  // strings
+  sx.strokeStyle='#bb8047';sx.lineWidth=4;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(ax,ceilY);sx.lineTo(kx,ky);sx.stroke();
+  sx.beginPath();sx.moveTo(kx,ky);sx.lineTo(mx,my);sx.stroke();
+  // mass
+  const s=W*0.11;sx.fillStyle='#7A4FA3';sx.fillRect(mx-s/2,my,s,s);sx.lineWidth=2;sx.strokeStyle='#512f73';sx.strokeRect(mx-s/2,my,s,s);
+  tag('10 kg',mx,my+s+H*0.028,'#1b2348','center',10.5,800);
+  // forces at the knot
+  const sc=W*0.0016;
+  arrow(kx,ky,0,WT*sc,'#E24B4A',4);tag('weight',kx-W*0.03,ky+WT*sc+H*0.012,'#E24B4A','right',10,800);
+  arrow(kx,ky,F*sc,0,'#185FA5',4);tag('your pull',kx+F*sc+W*0.03,ky+H*0.004,'#185FA5','left',10,800);
+  arrow(kx,ky,-(kx-ax)/Lu*T*sc,-(ky-ceilY)/Lu*T*sc,'#1D9E75',4);
+  tag('string',kx-(kx-ax)/Lu*T*sc*0.55-W*0.02,ky-(ky-ceilY)/Lu*T*sc*0.55,'#1d7a37','right',10,800);
+  // readouts
+  tag('pull '+F+' N   vs   weight 100 N',W*0.5,H*0.80,'#5b6172','center',12,800);
+  tag('the string leans '+Math.round(th*180/Math.PI)+'\u00b0 from vertical',W*0.5,H*0.86,'#1b2348','center',13.5,800);
+  tag(F===100?'pull equals weight, so exactly 45\u00b0':(F<100?'pull smaller than weight, under 45\u00b0':'pull bigger than weight, over 45\u00b0'),
+      W*0.5,H*0.915,F===100?'#1d7a37':'#8a8f80','center',11,700);
+}
+fE.addEventListener('input',()=>{F=+fE.value;fv.textContent=F+' N';draw();});
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>
