@@ -101,7 +101,7 @@ function draw(){sx.clearRect(0,0,W,H);
   }
 }
 function loop(){if(mode!=='playing')return;
-  for(let s=0;s<10;s++){const len=sim.yB-sim.yA,Fs=K*(len-LR),aA=10+Fs,aB=10-Fs/2;
+  for(let s=0;s<5;s++){const len=sim.yB-sim.yA,Fs=K*(len-LR),aA=10+Fs,aB=10-Fs/2;
     sim.vA+=aA*0.0006;sim.vB+=aB*0.0006;sim.yA+=sim.vA*0.0006;sim.yB+=sim.vB*0.0006;sim.tt+=0.0006;}
   if(sim.tt>=0.46||(sim.yB-sim.yA)<0.6){mode='done';cut.textContent='Reset';draw();return;}
   draw();requestAnimationFrame(loop);}
