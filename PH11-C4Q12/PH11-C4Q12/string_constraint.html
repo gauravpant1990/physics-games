@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>One Rope, Two Blocks</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">One Rope, Two Blocks</div>
+    <div class="sub">The rope cannot stretch. So whatever distance one block drops, the other rises by exactly the same amount.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>move</label><input type="range" id="mv" min="0" max="100" step="1" value="30"></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Constraint &middot; same distance, same speed</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const mv=document.getElementById('mv');
+let W=360,H=468;const ASPECT=1.30;
+let s=0.30;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function wheel(x,y,r){sx.fillStyle='#e8e2d4';sx.beginPath();sx.arc(x,y,r,0,7);sx.fill();
+  sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.stroke();sx.fillStyle='#1b2348';sx.beginPath();sx.arc(x,y,r*0.26,0,7);sx.fill();}
+function blk(x,y,col,label){const w=W*0.12,h=W*0.09;sx.fillStyle=col;sx.fillRect(x-w/2,y,w,h);
+  sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(x-w/2,y,w,h);return h;}
+function draw(){sx.clearRect(0,0,W,H);
+  const cx=W*0.5, topY=H*0.16, r=W*0.09, lx=cx-r, rx=cx+r;
+  const y0=H*0.42, trav=H*0.15, aY=y0+trav*s, bY=y0-trav*s;
+  // ceiling + pulley mount
+  sx.fillStyle='#cfc7b6';sx.fillRect(W*0.28,H*0.06,W*0.44,H*0.02);
+  sx.strokeStyle='#8a8f80';sx.lineWidth=3;sx.beginPath();sx.moveTo(cx,H*0.08);sx.lineTo(cx,topY-r);sx.stroke();
+  // rope
+  sx.strokeStyle='#bb8047';sx.lineWidth=4;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(lx,aY);sx.lineTo(lx,topY);sx.stroke();
+  sx.beginPath();sx.moveTo(rx,bY);sx.lineTo(rx,topY);sx.stroke();
+  wheel(cx,topY,r);
+  // start guides
+  sx.strokeStyle='#cdbfa3';sx.lineWidth=1.4;sx.setLineDash([4,4]);
+  sx.beginPath();sx.moveTo(lx-W*0.12,y0);sx.lineTo(lx+W*0.10,y0);sx.stroke();
+  sx.beginPath();sx.moveTo(rx-W*0.10,y0);sx.lineTo(rx+W*0.12,y0);sx.stroke();sx.setLineDash([]);
+  blk(lx,aY,'#185FA5','A');blk(rx,bY,'#7A4FA3','B');
+  // displacement arrows (equal)
+  if(s>0.02){
+    arrow(lx-W*0.09,y0,0,trav*s,'#1D9E75',3.4);tag('x',lx-W*0.12,y0+trav*s*0.5,'#1d7a37','right',11,800);
+    arrow(rx+W*0.09,y0,0,-trav*s,'#1D9E75',3.4);tag('x',rx+W*0.12,y0-trav*s*0.5,'#1d7a37','left',11,800);
+  }
+  tag('A drops   x',W*0.28,H*0.72,'#185FA5','center',12,800);
+  tag('B rises   x',W*0.72,H*0.72,'#7A4FA3','center',12,800);
+  tag('exactly the same x',W*0.5,H*0.79,'#1b2348','center',14,800);
+  tag('so both move at the same speed, always',W*0.5,H*0.85,'#5b6172','center',11,700);
+}
+mv.addEventListener('input',()=>{s=+mv.value/100;draw();});
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>

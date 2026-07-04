@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Rod Slipping Off the Wall</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .row{display:flex;gap:8px}
+  .btn{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:10px 4px;
+    border-radius:9px;border:2px solid var(--navy);cursor:pointer}
+  .btn-play{background:#2fa84f;color:#fff;border-color:#1d7a37;box-shadow:0 3px 0 #1d7a37}
+  .btn-play:active{transform:translateY(2px);box-shadow:0 1px 0 #1d7a37}
+  .btn-reset{background:var(--cream);color:var(--navy);border-color:var(--navy);box-shadow:0 3px 0 #b0a890}
+  .btn-reset:active{transform:translateY(2px);box-shadow:0 1px 0 #b0a890}
+  .ctl{display:flex;align-items:center;gap:10px;margin:4px 0}
+  .ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap;min-width:88px}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}
+  .val{font-size:12px;font-weight:800;color:#185FA5;min-width:54px;text-align:right}
+  .readout{text-align:center;font-size:13px;font-weight:800;color:var(--navy);padding:6px 0 2px}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Rod Slipping Off the Wall</div>
+    <div class="sub">A slides left at constant speed u = 8 m/s. Rod length is fixed, so B must slide down. Set starting angle and press Play.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="row">
+      <button class="btn btn-play" id="btnPlay">&#9654; Play</button>
+    </div>
+  </div>
+  <div class="card pad">
+    <div class="ctl"><label>start angle &theta;</label><input type="range" id="thSlider" min="20" max="75" step="5" value="60"><span class="val" id="thv">60&deg;</span></div>
+    <div class="readout" id="rdout">v&#x2082; = u &middot; cot&theta; = &mdash;</div>
+  </div>
+  <div class="foot">Kinematics &middot; Constraint Motion &middot; v&#x2082; = u &middot; cot&theta;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const thSlider=document.getElementById('thSlider');
+const thv=document.getElementById('thv');
+const btnPlay=document.getElementById('btnPlay');
+const rdout=document.getElementById('rdout');
+let W=360,H=460;const ASPECT=1.22;
+const U=8;                  // fixed speed
+let startTheta=60;          // user-chosen start angle
+let theta=startTheta;       // current animated angle
+let playing=false,animId=null,done=false;
+const DT=1/60;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){
+  const L=Math.hypot(dx,dy);if(L<2)return;
+  const ux=dx/L,uy=dy/L,hl=Math.min(13,L*0.55);
+  sx.save();sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);
+  sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);
+  sx.closePath();sx.fill();sx.restore();}
+
+function tag(tx,x,y,col,al,sz,wt){
+  sx.save();sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';
+  sx.textAlign=al||'center';sx.textBaseline='middle';
+  sx.fillStyle=col;sx.fillText(tx,x,y);sx.restore();}
+
+function hatch(x,y,w,h,dir){
+  sx.save();sx.strokeStyle='#b0a890';sx.lineWidth=1;sx.lineCap='round';
+  const sp=8;
+  if(dir==='floor'){for(let i=0;i<w/sp+2;i++){const xi=x+i*sp;sx.beginPath();sx.moveTo(xi,y);sx.lineTo(xi-sp*0.7,y+sp*0.7);sx.stroke();}}
+  if(dir==='wall'){for(let i=0;i<h/sp+2;i++){const yi=y+i*sp;sx.beginPath();sx.moveTo(x,yi);sx.lineTo(x+sp*0.7,yi-sp*0.7);sx.stroke();}}
+  sx.restore();}
+
+function draw(){
+  sx.clearRect(0,0,W,H);
+  const th=theta*Math.PI/180;
+  const vB=U/Math.tan(th);
+
+  const wallX=W*0.80;
+  const floorY=H*0.78;
+  const rodLen=Math.min(W*0.56,H*0.56);
+
+  const Bx=wallX, By=floorY-rodLen*Math.sin(th);
+  const Ax=wallX-rodLen*Math.cos(th), Ay=floorY;
+
+  // wall fill + hatch
+  sx.fillStyle='#d6d0c4';sx.fillRect(wallX,H*0.05,W*0.14,floorY-H*0.05+2);
+  sx.save();sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();sx.moveTo(wallX,H*0.05);sx.lineTo(wallX,floorY);sx.stroke();sx.restore();
+  hatch(wallX+1,H*0.07,W*0.12,floorY-H*0.07,'wall');
+
+  // floor fill + hatch
+  sx.fillStyle='#d6d0c4';sx.fillRect(W*0.06,floorY,wallX-W*0.06+2,H*0.12);
+  sx.save();sx.strokeStyle='#1b2348';sx.lineWidth=2;
+  sx.beginPath();sx.moveTo(W*0.06,floorY);sx.lineTo(wallX,floorY);sx.stroke();sx.restore();
+  hatch(W*0.08,floorY,wallX-W*0.08,H*0.10,'floor');
+
+  // angle arc
+  sx.save();sx.strokeStyle='rgba(27,35,72,.45)';sx.lineWidth=1.5;
+  sx.beginPath();sx.arc(Ax,Ay,rodLen*0.16,Math.PI,Math.PI+th);sx.stroke();sx.restore();
+  tag(Math.round(theta)+'\u00b0',Ax+rodLen*0.12,Ay-rodLen*0.09,'rgba(27,35,72,.8)','center',11,800);
+
+  // rod — plain stroke, no white outline
+  sx.save();sx.strokeStyle='#1b2348';sx.lineWidth=5.5;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(Ax,Ay);sx.lineTo(Bx,By);sx.stroke();sx.restore();
+
+  // rod label on dark background patch
+  const midX=(Ax+Bx)/2, midY=(Ay+By)/2;
+  const lx=midX-Math.sin(th)*W*0.045, ly=midY+Math.cos(th)*W*0.045;
+  tag('l',lx,ly,'#fff','center',14,800);
+
+  // end A
+  sx.save();sx.fillStyle='#E24B4A';sx.beginPath();sx.arc(Ax,Ay,W*0.025,0,Math.PI*2);sx.fill();
+  sx.strokeStyle='#fff';sx.lineWidth=2;sx.stroke();sx.restore();
+  tag('A',Ax,Ay+H*0.042,'#E24B4A','center',12,800);
+
+  // end B
+  sx.save();sx.fillStyle='#7A4FA3';sx.beginPath();sx.arc(Bx,By,W*0.025,0,Math.PI*2);sx.fill();
+  sx.strokeStyle='#fff';sx.lineWidth=2;sx.stroke();sx.restore();
+  tag('B',Bx+W*0.058,By,'#7A4FA3','center',12,800);
+
+  // velocity arrow A (left, from above the dot)
+  const aS=W*0.028;
+  arrow(Ax,Ay-W*0.026,-U*aS*0.5,0,'#E24B4A',4);
+  tag('u',Ax-U*aS*0.25,Ay-W*0.026-H*0.038,'#E24B4A','center',12,800);
+
+  // velocity arrow B (down)
+  const vBshow=Math.min(vB,12);
+  arrow(Bx+W*0.026,By,0,vBshow*aS,'#7A4FA3',4);
+  tag('v\u2082',Bx+W*0.026+W*0.072,By+vBshow*aS*0.5,'#7A4FA3','center',12,800);
+
+  rdout.textContent='v\u2082 = u \u00b7 cot\u03b8 = '+vB.toFixed(2)+' m/s';
+  rdout.style.color=vB>U*2?'#E24B4A':'#1b2348';
+}
+
+function loop(){
+  if(!playing)return;
+  const th=theta*Math.PI/180;
+  const rodLen=Math.min(W*0.56,H*0.56);
+  const dthdt=-U/(rodLen*Math.sin(th));
+  theta+=dthdt*(180/Math.PI)*DT*rodLen*0.035;
+  if(theta<=6){
+    theta=6;playing=false;done=true;
+    btnPlay.textContent='\u21ba Reset';
+    btnPlay.className='btn btn-reset';
+  }
+  draw();
+  if(playing)animId=requestAnimationFrame(loop);
+}
+
+function resetAnim(){
+  cancelAnimationFrame(animId);
+  playing=false;done=false;
+  theta=startTheta;
+  btnPlay.textContent='\u25b6 Play';
+  btnPlay.className='btn btn-play';
+  btnPlay.style.boxShadow='0 3px 0 #1d7a37';
+  thSlider.disabled=false;
+  draw();
+}
+
+btnPlay.addEventListener('click',()=>{
+  if(done||(!playing&&theta<startTheta-1)){resetAnim();return;}
+  if(playing){
+    playing=false;
+    btnPlay.textContent='\u25b6 Play';
+  } else {
+    playing=true;
+    btnPlay.textContent='\u23f8 Pause';
+    thSlider.disabled=true;
+    loop();
+  }
+});
+
+thSlider.addEventListener('input',()=>{
+  startTheta=+thSlider.value;theta=startTheta;
+  thv.textContent=startTheta+'\u00b0';
+  // highlight button navy (already navy) — make shadow navy to signal "ready"
+  btnPlay.style.boxShadow='0 3px 0 var(--navy)';
+  btnPlay.textContent='\u25b6 Play';
+  btnPlay.className='btn btn-play';
+  done=false;
+  draw();
+});
+
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>
