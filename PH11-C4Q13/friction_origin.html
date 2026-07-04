@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Where Friction Comes From</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .seg{display:flex;gap:6px}.seg button{flex:1;font-family:inherit;font-size:11.5px;font-weight:800;padding:8px 4px;border-radius:8px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}.seg button.on{background:var(--navy);color:#ffcf33}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Where Friction Comes From</div>
+    <div class="sub">A surface can look perfectly smooth, but zoom in and it is full of tiny bumps. Where two surfaces touch, the bumps interlock and stick.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="seg" id="seg"><button data-m="macro" class="on">looks smooth</button><button data-m="zoom">zoom in</button></div></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; rough bumps interlock</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const seg=document.getElementById('seg');
+let W=360,H=480;const ASPECT=1.3333;let mode='macro';
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  if(mode==='macro'){
+    const y=H*0.5;
+    sx.fillStyle='#185FA5';sx.fillRect(W*0.14,y-W*0.16,W*0.72,W*0.15);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(W*0.14,y-W*0.16,W*0.72,W*0.15);
+    sx.fillStyle='#c9b38b';sx.fillRect(W*0.14,y+W*0.01,W*0.72,W*0.15);sx.lineWidth=2;sx.strokeStyle='#8a6f3c';sx.strokeRect(W*0.14,y+W*0.01,W*0.72,W*0.15);
+    tag('two flat surfaces touching',W*0.5,H*0.72,'#1b2348','center',13,800);
+    tag('smooth to the eye',W*0.5,H*0.78,'#8a8f80','center',11,700);
+  }else{
+    const yc=H*0.46;
+    sx.fillStyle='#185FA5';sx.beginPath();sx.moveTo(W*0.14,H*0.20);sx.lineTo(W*0.86,H*0.20);sx.lineTo(W*0.86,yc-W*0.02);
+    for(let i=9;i>=0;i--){const x=W*0.14+(W*0.72)*i/9;sx.lineTo(x,yc-(i%2?W*0.05:W*0.0));}
+    sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.stroke();
+    sx.fillStyle='#d8bd8f';sx.beginPath();sx.moveTo(W*0.14,H*0.72);sx.lineTo(W*0.86,H*0.72);sx.lineTo(W*0.86,yc+W*0.02);
+    for(let i=9;i>=0;i--){const x=W*0.14+(W*0.72)*i/9;sx.lineTo(x,yc+(i%2?W*0.0:W*0.05));}
+    sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle='#8a6f3c';sx.stroke();
+    sx.fillStyle='#E24B4A';for(let i=1;i<9;i+=2){const x=W*0.14+(W*0.72)*i/9;sx.beginPath();sx.arc(x,yc,W*0.012,0,7);sx.fill();}
+    tag('bumps interlock, red spots stick together',W*0.5,H*0.80,'#1b2348','center',11.5,800);
+    tag('breaking these bonds is friction',W*0.5,H*0.86,'#c0392b','center',11,700);
+  }
+}
+seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.m;seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));draw();}));
+window.addEventListener('resize',fit);fit();
+</script></body></html>
