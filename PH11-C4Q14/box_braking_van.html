@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Box on a Braking Van</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap;min-width:70px}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12px;font-weight:800;color:#185FA5;min-width:44px;text-align:right}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer;margin-top:6px}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Box on a Braking Van</div>
+    <div class="sub">The van brakes just as hard every time. Only friction can slow the box. Pick the friction: if the braking beats it, the box keeps going and slides to the front wall.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>friction &mu;</label><input type="range" id="mu" min="0.1" max="0.9" step="0.05" value="0.3"><span class="val" id="muv">0.30</span></div>
+    <button class="btn" id="go">Play</button>
+  </div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; box slides when a &gt; &mu;g</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const muE=document.getElementById('mu'),muv=document.getElementById('muv'),go=document.getElementById('go');
+let W=360,H=461;const ASPECT=1.28, G=10, A=8;   // braking acceleration fixed at 8 m/s^2
+let muSel=0.3,mu=0.3,mode='ready';
+let vanX=0,vanV=0,boxV=0,boxRel=0,t=0,last=0,v0=0,S=0,maxSlide=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset(false);}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function updateBtn(){go.classList.remove('dull');if(mode==='playing'&&muSel===mu)go.classList.add('dull');}
+function geo(){const groundY=H*0.60,wheelR=W*0.035,vanW=W*0.46,vanH=W*0.24,wallT=W*0.02;
+  const vanY=groundY-wheelR-vanH,bw=W*0.12,bh=W*0.11;return {groundY,wheelR,vanW,vanH,wallT,vanY,bw,bh};}
+function reset(keep){const g=geo();mu=muSel;v0=W*0.20;S=W*0.045;maxSlide=(g.vanW-2*g.wallT)-g.bw;
+  vanX=W*0.03;vanV=v0;boxV=v0;boxRel=0;t=0;mode='ready';if(!keep)go.textContent='Play';updateBtn();draw();}
+function draw(){sx.clearRect(0,0,W,H);
+  const g=geo(),slides=A>mu*G;
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,g.groundY);sx.lineTo(W,g.groundY);sx.stroke();
+  for(let x=W*0.04;x<W;x+=W*0.09){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.4;sx.beginPath();sx.moveTo(x,g.groundY);sx.lineTo(x-W*0.02,g.groundY+H*0.02);sx.stroke();}
+  sx.fillStyle='#ece7dc';sx.fillRect(vanX,g.vanY,g.vanW,g.vanH);
+  sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.strokeRect(vanX,g.vanY,g.vanW,g.vanH);
+  sx.fillStyle='#d7cfbd';sx.fillRect(vanX+g.wallT,g.vanY+g.vanH-g.wallT,g.vanW-2*g.wallT,g.wallT);
+  sx.fillStyle='#1b2348';[vanX+g.vanW*0.24,vanX+g.vanW*0.76].forEach(wx=>{sx.beginPath();sx.arc(wx,g.groundY,g.wheelR,0,7);sx.fill();});
+  const bx=vanX+g.wallT+boxRel, by=g.vanY+g.vanH-g.wallT-g.bh;
+  sx.fillStyle='#E0892A';sx.fillRect(bx,by,g.bw,g.bh);sx.lineWidth=2;sx.strokeStyle='#b06a18';sx.strokeRect(bx,by,g.bw,g.bh);
+  if(mode==='playing'){const cxb=bx+g.bw/2,asc=W*0.0115;
+    arrow(cxb,by+g.bh*0.35,-A*asc,0,'#E0892A',4);tag('braking a',cxb-A*asc-W*0.02,by+g.bh*0.35-H*0.02,'#b06a18','right',9,800);
+    arrow(cxb,by+g.bh*0.75,-(mu*G)*asc,0,'#1D9E75',4.4);tag('friction',cxb-(mu*G)*asc-W*0.02,by+g.bh*0.75+H*0.022,'#1d7a37','right',9,800);}
+  tag(slides?'a > \u03bcg   \u2192   SLIDES':'a \u2264 \u03bcg   \u2192   NO SLIP',W*0.5,H*0.83,slides?'#c0392b':'#1d7a37','center',15,800);
+  tag(slides?'friction too weak, box creeps to the front wall':'friction is enough, box rides along with the van',W*0.5,H*0.89,'#5b6172','center',10.5,700);
+  tag('\u03bcg = '+(mu*G).toFixed(1)+' m/s\u00b2      braking a = '+A+' m/s\u00b2',W*0.5,H*0.94,'#8a8f80','center',10,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}
+  const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;t+=dt;
+  if(t<1.05){vanX+=vanV*dt;}
+  else{const dvV=A*S*dt,dvB=Math.min(A,mu*G)*S*dt;
+    vanV=Math.max(0,vanV-dvV);boxV=Math.max(0,boxV-dvB);
+    vanX+=vanV*dt;boxRel+=(boxV-vanV)*dt;
+    if(boxRel<0)boxRel=0;if(boxRel>maxSlide)boxRel=maxSlide;
+    if((vanV<=0&&boxV<=0)||boxRel>=maxSlide){mode='done';go.textContent='Reset';updateBtn();draw();return;}}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{
+  if(mode==='ready'){reset(true);mode='playing';go.textContent='Reset';updateBtn();last=0;requestAnimationFrame(loop);}
+  else{reset(false);}});
+muE.addEventListener('input',()=>{muSel=+muE.value;muv.textContent=muSel.toFixed(2);if(mode==='ready'){mu=muSel;draw();}updateBtn();});
+window.addEventListener('resize',fit);
+fit();
+</script></body></html>

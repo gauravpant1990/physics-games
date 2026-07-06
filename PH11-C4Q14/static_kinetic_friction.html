@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Static vs Kinetic Friction</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl label{font-size:12px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:24px}
+  .val{font-size:13px;font-weight:800;color:#185FA5;min-width:46px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head">Static vs Kinetic Friction</div>
+    <div class="sub">While the block is still, friction quietly grows to match your push, so nothing moves. Once it breaks free, friction drops to a fixed kinetic value and stays there however hard you push.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>your push</label>
+      <input type="range" id="frc" min="0" max="80" step="2" value="20">
+      <span class="val" id="frcv">20 N</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; static rises to a max, kinetic stays constant</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const frc=document.getElementById('frc'),frcv=document.getElementById('frcv');
+let W=360,H=475;const ASPECT=1.32;
+const m=10, Wt=100, MUS=0.5, MUK=0.3, MAXS=MUS*Wt, KIN=MUK*Wt;   // 50 , 30
+let F=20, scroll=0;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+
+function friction(){return F<=MAXS ? F : KIN;}        // static matches push; kinetic constant
+function moving(){return F>MAXS;}
+function accel(){return moving() ? (F-KIN)/m : 0;}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const f=friction(), move=moving();
+  // ---------- scene ----------
+  const groundY=H*0.30, cx=W*0.50, bw=W*0.17, bh=W*0.13;
+  // ground with scrolling marks (block stays put, ground slides left when moving)
+  sx.beginPath();sx.moveTo(0,groundY);sx.lineTo(W,groundY);sx.stroke();
+  const sp=W*0.07; let off=scroll%sp; if(off<0)off+=sp;
+  sx.strokeStyle='#c6bfac';sx.lineWidth=2.4;
+  for(let x=-off;x<W+sp;x+=sp){sx.beginPath();sx.moveTo(x,groundY+3);sx.lineTo(x-W*0.03,groundY+H*0.022);sx.stroke();}
+  // block
+  const byTop=groundY-bh;
+  sx.fillStyle=move?'#1D9E75':'#185FA5';sx.fillRect(cx-bw/2,byTop,bw,bh);
+  sx.lineWidth=2;sx.strokeStyle=move?'#14674d':'#0f3f70';sx.strokeRect(cx-bw/2,byTop,bw,bh);
+  // push arrow (right) at upper part
+  const sc=W*0.0040, pl=Math.min(W*0.30,F*sc);
+  arrow(cx-bw*0.2,byTop+bh*0.32,pl,0,'#185FA5',4.6);
+  tag('push '+F+' N',cx-bw*0.2+pl+W*0.02,byTop+bh*0.32,'#185FA5','left',10.5,800);
+  // friction arrow (left) at base/contact
+  const frl=Math.min(W*0.30,f*sc);
+  arrow(cx-bw*0.1,groundY-3,-frl,0,'#8a8f80',4.6);
+  tag('friction '+Math.round(f)+' N',cx-bw*0.1-frl-W*0.02,groundY-3,'#8a8f80','right',10,800);
+  // motion cue
+  if(move){arrow(cx+bw*0.1,byTop-H*0.025,W*0.10,0,'#1D9E75',4);tag('moves',cx+bw*0.1+W*0.12,byTop-H*0.025,'#1D9E75','left',10.5,800);}
+  else tag('still',cx,byTop-H*0.022,'#185FA5','center',11,800);
+  tag('N = mg = '+Wt+' N',cx,groundY+H*0.045,'#8a8f80','center',9.5,700);
+
+  // ---------- graph: friction vs push ----------
+  const gx0=W*0.16,gx1=W*0.90,gb=H*0.72,gt=H*0.46, Fx=80, fy=60;
+  const X=v=>gx0+(v/Fx)*(gx1-gx0), Y=v=>gb-(v/fy)*(gb-gt);
+  sx.strokeStyle='#c8c2b4';sx.lineWidth=1.4;
+  sx.beginPath();sx.moveTo(gx0,gb);sx.lineTo(gx1,gb);sx.stroke();
+  sx.beginPath();sx.moveTo(gx0,gb);sx.lineTo(gx0,gt);sx.stroke();
+  tag('friction',gx0-W*0.005,gt-H*0.02,'#8a8f80','left',9,700);
+  tag('your push \u2192',gx1,gb+H*0.028,'#8a8f80','right',9,700);
+  // static diagonal (friction = push)
+  sx.strokeStyle='#185FA5';sx.lineWidth=3;sx.beginPath();sx.moveTo(X(0),Y(0));sx.lineTo(X(MAXS),Y(MAXS));sx.stroke();
+  tag('static = push',X(MAXS*0.46),Y(MAXS*0.46)-H*0.025,'#185FA5','center',9.5,800);
+  // breakaway drop
+  sx.setLineDash([3,3]);sx.strokeStyle='#c0392b';sx.lineWidth=1.6;
+  sx.beginPath();sx.moveTo(X(MAXS),Y(MAXS));sx.lineTo(X(MAXS),Y(KIN));sx.stroke();sx.setLineDash([]);
+  tag('breaks free',X(MAXS),Y(MAXS)-H*0.02,'#c0392b','center',9,800);
+  // kinetic flat line
+  sx.strokeStyle='#1D9E75';sx.lineWidth=3;sx.beginPath();sx.moveTo(X(MAXS),Y(KIN));sx.lineTo(X(Fx),Y(KIN));sx.stroke();
+  tag('kinetic = constant',X((MAXS+Fx)/2),Y(KIN)+H*0.026,'#1D9E75','center',9.5,800);
+  // level guides
+  tag('max static '+MAXS,X(MAXS)+W*0.015,Y(MAXS),'#185FA5','left',9,700);
+  // current point
+  const cxp=X(F),cyp=Y(f);
+  sx.setLineDash([2,3]);sx.strokeStyle='#1b2348';sx.lineWidth=1.2;
+  sx.beginPath();sx.moveTo(cxp,gb);sx.lineTo(cxp,cyp);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle=move?'#1D9E75':'#185FA5';sx.beginPath();sx.arc(cxp,cyp,W*0.016,0,7);sx.fill();
+  sx.strokeStyle='#fff';sx.lineWidth=1.6;sx.stroke();
+
+  // ---------- readout ----------
+  const ry=H*0.80;
+  if(!move){
+    tag('block still :  static friction = push = '+F+' N',W*0.5,ry,'#185FA5','center',12.5,800);
+    tag('it can rise only up to \u03bc\u209bN = '+MAXS+' N',W*0.5,ry+H*0.05,'#5b6172','center',11,700);
+  }else{
+    tag('block slides :  kinetic friction = \u03bc\u2096N = '+KIN+' N',W*0.5,ry,'#1D9E75','center',12.5,800);
+    tag('stays '+KIN+' N however hard you push   \u2192   a = '+accel().toFixed(1)+' m/s\u00b2',W*0.5,ry+H*0.05,'#14674d','center',11,800);
+  }
+  tag('\u03bc\u209b = 0.5   \u03bc\u2096 = 0.3   m = 10 kg',W*0.5,H*0.90,'#8a8f80','center',10,700);
+}
+function loop(){if(moving()){scroll+=Math.min(6,(F-KIN)*0.12);}draw();requestAnimationFrame(loop);}
+frc.addEventListener('input',()=>{F=+frc.value;frcv.textContent=F+' N';draw();});
+window.addEventListener('resize',fit);
+fit();loop();
+</script></body></html>
