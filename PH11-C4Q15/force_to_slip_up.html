@@ -13,12 +13,14 @@
   .chip .v{font-size:13px;font-weight:800;color:var(--navy);margin-top:1px}
   .ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
   input[type=range]{flex:1;accent-color:#E0892A;height:22px}.val{font-size:12.5px;font-weight:800;color:#E0892A;min-width:52px;text-align:right}
+  .btn{width:100%;margin-top:8px;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
   .info{font-size:13px;font-weight:800;text-align:center;color:#1d7a37;border:2px solid #1d7a37;border-radius:9px;padding:7px 6px}
   .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
 </style></head>
 <body><div class="wrap">
   <div class="card pad"><div class="head">Force to Start Sliding Up</div>
-    <div class="sub">Push the dog up the slope. Static friction quietly balances you, up to its limit. Beat that limit and the dog finally slips upward.</div></div>
+    <div class="sub">Push the box up the slope. Static friction quietly balances you, up to its limit. Beat that limit and the box finally slips upward.</div></div>
   <div class="card"><canvas id="scene"></canvas></div>
   <div class="card pad" style="padding:8px 12px"><div class="info" id="info">static friction balancing</div></div>
   <div class="card pad">
@@ -28,16 +30,17 @@
       <div class="chip"><div class="k">Net along slope</div><div class="v" id="cN">0 N</div></div>
     </div>
     <div class="ctl"><label>applied F</label><input type="range" id="f" min="0" max="400" step="4" value="100"><span class="val" id="fv">100 N</span></div>
+    <button class="btn" id="go">Play</button>
   </div>
   <div class="foot">Laws of Motion &middot; Friction &middot; F_slip = mg sin&theta; + &mu;&#x209B; mg cos&theta;</div>
 </div>
 <script>
 const scn=document.getElementById('scene'),sx=scn.getContext('2d');
-const fE=document.getElementById('f'),fv=document.getElementById('fv'),cF=document.getElementById('cF'),cN=document.getElementById('cN'),info=document.getElementById('info');
+const fE=document.getElementById('f'),fv=document.getElementById('fv'),cF=document.getElementById('cF'),cN=document.getElementById('cN'),info=document.getElementById('info'),go=document.getElementById('go');
 let W=360,H=480;const ASPECT=1.3333;
 const PULL=180,MAXS=144,KIN=120; // mg sin, mu_s mg cos, mu_k mg cos
 const U=[0.8,-0.6],NR=[-0.6,-0.8],DN=[-0.8,0.6];
-let F=100,slide=0,last=0;
+let F=100,slide=0,last=0,mode='ready';
 function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
 function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
 function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
@@ -77,9 +80,17 @@ function draw(){sx.clearRect(0,0,W,H);
   cN.textContent=(net===0?'0':(net>0?'+'+Math.round(net):Math.round(net)))+' N';
 }
 function slidingNow(){const req=PULL-F;return (req>MAXS)||(F>324);}
+function updateBtn(){
+  if(mode==='playing'){go.textContent='Reset';go.className='btn dull';go.disabled=false;}
+  else if(mode==='done'){go.textContent='Reset';go.className='btn';go.disabled=false;}
+  else{go.textContent='Play';if(slidingNow()){go.className='btn';go.disabled=false;}else{go.className='btn dull';go.disabled=true;}}
+}
 function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
-  if(slidingNow()){slide+=0.16*dt;if(slide>0.34)slide=0;}else{slide=0;}
+  if(mode==='playing'){slide+=0.16*dt;if(slide>=0.34){slide=0.34;mode='done';updateBtn();}}
   draw();requestAnimationFrame(loop);}
-fE.addEventListener('input',()=>{F=+fE.value;});
-window.addEventListener('resize',fit);fit();requestAnimationFrame(loop);
+go.addEventListener('click',()=>{if(mode==='playing')return;
+  if(mode==='done'){mode='ready';slide=0;updateBtn();}
+  else{if(!slidingNow())return;slide=0;mode='playing';updateBtn();}});
+fE.addEventListener('input',()=>{F=+fE.value;slide=0;mode='ready';updateBtn();});
+window.addEventListener('resize',fit);fit();updateBtn();requestAnimationFrame(loop);
 </script></body></html>
