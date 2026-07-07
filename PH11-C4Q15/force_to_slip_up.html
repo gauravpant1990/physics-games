@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Force to Start Sliding Up</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .chips{display:flex;gap:6px;margin-bottom:8px}
+  .chip{flex:1;text-align:center;border:2px solid #e0d9c8;border-radius:9px;padding:5px 2px}
+  .chip .k{font-size:8.5px;font-weight:800;color:#8a8f80;text-transform:uppercase;letter-spacing:.02em}
+  .chip .v{font-size:13px;font-weight:800;color:var(--navy);margin-top:1px}
+  .ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#E0892A;height:22px}.val{font-size:12.5px;font-weight:800;color:#E0892A;min-width:52px;text-align:right}
+  .info{font-size:13px;font-weight:800;text-align:center;color:#1d7a37;border:2px solid #1d7a37;border-radius:9px;padding:7px 6px}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Force to Start Sliding Up</div>
+    <div class="sub">Push the dog up the slope. Static friction quietly balances you, up to its limit. Beat that limit and the dog finally slips upward.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad" style="padding:8px 12px"><div class="info" id="info">static friction balancing</div></div>
+  <div class="card pad">
+    <div class="chips">
+      <div class="chip"><div class="k">Applied F</div><div class="v" id="cF">100 N</div></div>
+      <div class="chip"><div class="k">Max friction</div><div class="v">144 N</div></div>
+      <div class="chip"><div class="k">Net along slope</div><div class="v" id="cN">0 N</div></div>
+    </div>
+    <div class="ctl"><label>applied F</label><input type="range" id="f" min="0" max="400" step="4" value="100"><span class="val" id="fv">100 N</span></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; F_slip = mg sin&theta; + &mu;&#x209B; mg cos&theta;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fE=document.getElementById('f'),fv=document.getElementById('fv'),cF=document.getElementById('cF'),cN=document.getElementById('cN'),info=document.getElementById('info');
+let W=360,H=480;const ASPECT=1.3333;
+const PULL=180,MAXS=144,KIN=120; // mg sin, mu_s mg cos, mu_k mg cos
+const U=[0.8,-0.6],NR=[-0.6,-0.8],DN=[-0.8,0.6];
+let F=100,slide=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const req=PULL-F;                 // + = friction needs to point up
+  let stt, fr, net;
+  if(req>MAXS){stt='down'; fr=KIN; net=PULL-F-KIN;}        // can't hold, slips down
+  else if(F>324){stt='up'; fr=-KIN; net=F-PULL-KIN;}       // slips up
+  else{stt=(F>=320)?'verge':'still'; fr=req; net=0;}        // static holds
+  const sliding=(stt==='up'||stt==='down');
+  const A=[W*0.10,H*0.60],C=[W*0.82,H*0.60-W*0.72*0.75],B=[W*0.82,H*0.60];
+  sx.fillStyle='#e7e0d1';sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(B[0],B[1]);sx.lineTo(C[0],C[1]);sx.closePath();sx.fill();
+  sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(C[0],C[1]);sx.stroke();sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(B[0],B[1]);sx.stroke();
+  tag('37\u00b0',A[0]+W*0.085,A[1]-W*0.026,'#8a8f80','center',11,800);
+  const baseP=0.40, pp=stt==='up'?baseP+slide:(stt==='down'?baseP-slide:baseP);
+  const P=[A[0]+(C[0]-A[0])*pp,A[1]+(C[1]-A[1])*pp],bs=W*0.13;
+  const ctr=[P[0]+NR[0]*bs/2,P[1]+NR[1]*bs/2];
+  const cr=(a,b)=>[ctr[0]+U[0]*a+NR[0]*b,ctr[1]+U[1]*a+NR[1]*b];
+  const q=[cr(-bs/2,-bs/2),cr(bs/2,-bs/2),cr(bs/2,bs/2),cr(-bs/2,bs/2)];
+  sx.fillStyle=sliding?'#d84a3a':'#185FA5';sx.beginPath();sx.moveTo(q[0][0],q[0][1]);q.slice(1).forEach(p=>sx.lineTo(p[0],p[1]));sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle=sliding?'#9c2f22':'#0f3f70';sx.stroke();
+  const cx=ctr[0],cy=ctr[1],L=W*0.14,fsc=W*0.00042;
+  function lab(t,dir,ln,col,px,py){tag(t,cx+dir[0]*(ln+W*0.05)+(px||0),cy+dir[1]*(ln+W*0.05)+(py||0),col,'center',10,800);}
+  arrow(cx,cy,0,L,'#E24B4A',4.2);lab('weight',[0,1],L,'#E24B4A');
+  arrow(cx,cy,NR[0]*L,NR[1]*L,'#185FA5',4.2);lab('normal',NR,L,'#185FA5');
+  // applied up-slope (orange), scaled
+  const fl=Math.max(W*0.03,Math.min(W*0.2,F*fsc));if(F>2){arrow(cx,cy,U[0]*fl,U[1]*fl,'#E0892A',4.6);lab('applied F',[U[0],U[1]],fl,'#b06a18',W*0.02,-W*0.055);}
+  // friction (green), signed
+  const fdir=fr>=0?U:DN, ffl=Math.min(W*0.2,Math.abs(fr)*fsc);
+  if(ffl>2){arrow(cx,cy,fdir[0]*ffl,fdir[1]*ffl,'#1D9E75',4.6);lab('friction',fdir,ffl,'#1d7a37',-W*0.02,W*0.055);}
+  // status label
+  const txt=stt==='down'?'needs more push':stt==='still'?'static friction balancing':stt==='verge'?'on the verge of slipping':'SLIDING, friction cannot hold';
+  const col=(stt==='up'||stt==='down')?'#c0392b':stt==='verge'?'#b06a18':'#1d7a37';
+  info.textContent=txt;info.style.color=col;info.style.borderColor=col;
+  // update chips
+  cF.textContent=F+' N';fv.textContent=F+' N';
+  cN.textContent=(net===0?'0':(net>0?'+'+Math.round(net):Math.round(net)))+' N';
+}
+function slidingNow(){const req=PULL-F;return (req>MAXS)||(F>324);}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(slidingNow()){slide+=0.16*dt;if(slide>0.34)slide=0;}else{slide=0;}
+  draw();requestAnimationFrame(loop);}
+fE.addEventListener('input',()=>{F=+fE.value;});
+window.addEventListener('resize',fit);fit();requestAnimationFrame(loop);
+</script></body></html>

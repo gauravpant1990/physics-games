@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Forces on a Sliding Dog</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .line{font-size:12px;font-weight:800;color:var(--navy);text-align:center;line-height:1.4;margin-bottom:8px}
+  .seg{display:flex;gap:6px}.seg button{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 2px;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .seg button.on{background:var(--navy);color:#ffcf33}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Forces on a Sliding Dog</div>
+    <div class="sub">Friction always fights the sliding. Switch the direction and watch only the friction arrow turn around.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="line" id="line">Friction always opposes motion. Box slides up, so friction points down.</div>
+    <div class="seg" id="seg"><button data-u="1" class="on">Box UP</button><button data-u="0">Box DOWN</button></div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; friction opposes motion, not gravity</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const seg=document.getElementById('seg'),line=document.getElementById('line');
+let W=360,H=480;const ASPECT=1.3333;
+const U=[0.8,-0.6],NR=[-0.6,-0.8],DN=[-0.8,0.6];
+let up=true,p=0.30,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd,dash){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';if(dash)sx.setLineDash([6,4]);sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.setLineDash([]);sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const A=[W*0.08,H*0.64],C=[W*0.86,H*0.64-W*0.78*0.75],B=[W*0.86,H*0.64];
+  const rampLen=Math.hypot(C[0]-A[0],C[1]-A[1]);
+  sx.fillStyle='#e7e0d1';sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(B[0],B[1]);sx.lineTo(C[0],C[1]);sx.closePath();sx.fill();
+  sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(C[0],C[1]);sx.stroke();sx.beginPath();sx.moveTo(A[0],A[1]);sx.lineTo(B[0],B[1]);sx.stroke();
+  tag('37\u00b0',A[0]+W*0.075,A[1]-W*0.024,'#8a8f80','center',11,800);
+  const along=p*rampLen, base=[A[0]+U[0]*along,A[1]+U[1]*along], bs=W*0.13;
+  const ctr=[base[0]+NR[0]*bs/2,base[1]+NR[1]*bs/2];
+  const cr=(a,b)=>[ctr[0]+U[0]*a+NR[0]*b,ctr[1]+U[1]*a+NR[1]*b];
+  const q=[cr(-bs/2,-bs/2),cr(bs/2,-bs/2),cr(bs/2,bs/2),cr(-bs/2,bs/2)];
+  sx.fillStyle='#E0892A';sx.beginPath();sx.moveTo(q[0][0],q[0][1]);q.slice(1).forEach(pt=>sx.lineTo(pt[0],pt[1]));sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle='#9c5a12';sx.stroke();
+  const cx=ctr[0],cy=ctr[1],L=W*0.15;
+  function lab(t,dir,ln,col){tag(t,cx+dir[0]*(ln+W*0.05),cy+dir[1]*(ln+W*0.05),col,'center',10.5,800);}
+  arrow(cx,cy,0,L,'#E24B4A',4.6);lab('weight',[0,1],L,'#E24B4A');
+  arrow(cx,cy,NR[0]*L,NR[1]*L,'#185FA5',4.6);lab('normal',NR,L,'#185FA5');
+  const fdir=up?DN:U;arrow(cx,cy,fdir[0]*L,fdir[1]*L,'#1D9E75',5);lab('friction',fdir,L,'#1d7a37');
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  p+=(up?1:-1)*0.16*dt;
+  if(p>0.64)p=0.14; if(p<0.14)p=0.64;
+  draw();requestAnimationFrame(loop);}
+function refresh(){line.textContent='Friction always opposes motion. Box slides '+(up?'up, so friction points down.':'down, so friction points up.');}
+seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{up=b.dataset.u==='1';seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));p=up?0.16:0.62;refresh();}));
+window.addEventListener('resize',fit);fit();refresh();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Angle of Repose</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:40px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Angle of Repose</div>
+    <div class="sub">Tilt the slope slowly. The block grips until the angle where tan of the angle reaches the friction. That tipping angle is the angle of repose.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>tilt angle</label><input type="range" id="ang" min="5" max="45" step="1" value="20"><span class="val" id="av">20&deg;</span></div></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; it slips when tan&theta; = &mu;&#x209B;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const angE=document.getElementById('ang'),av=document.getElementById('av');
+let W=360,H=480;const ASPECT=1.3333,G=10,MUS=0.58,MUK=0.5,REP=Math.atan(MUS)*180/Math.PI;
+let ang=20,s=0,v=0,sliding=false,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}resetBlock();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.4;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function Lr(){return W*0.66;} function maxS(){return Lr()*0.70;} function minS(){return W*0.06;}
+function resetBlock(){s=maxS();v=0;sliding=false;draw();}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=ang*Math.PI/180, co=Math.cos(th), si=Math.sin(th);
+  const P0=[W*0.16,H*0.62], up=[co,-si], nrm=[-si,-co], top=[P0[0]+up[0]*Lr(),P0[1]+up[1]*Lr()];
+  const slips=ang>=REP;
+  // wedge
+  sx.fillStyle='#e7e0d1';sx.beginPath();sx.moveTo(P0[0],P0[1]);sx.lineTo(top[0],top[1]);sx.lineTo(top[0],P0[1]);sx.closePath();sx.fill();
+  sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.beginPath();sx.moveTo(P0[0],P0[1]);sx.lineTo(top[0],top[1]);sx.stroke();
+  sx.lineWidth=2;sx.beginPath();sx.moveTo(0,P0[1]);sx.lineTo(W,P0[1]);sx.stroke();
+  // angle marker
+  tag(ang+'\u00b0',P0[0]+W*0.10,P0[1]-W*0.03,'#1b2348','center',12,800);
+  // block
+  const bs=W*0.10, sp=[P0[0]+up[0]*s,P0[1]+up[1]*s], ctr=[sp[0]+nrm[0]*bs/2,sp[1]+nrm[1]*bs/2];
+  const cr=(a,b)=>[ctr[0]+up[0]*a+nrm[0]*b,ctr[1]+up[1]*a+nrm[1]*b];
+  const q=[cr(-bs/2,-bs/2),cr(bs/2,-bs/2),cr(bs/2,bs/2),cr(-bs/2,bs/2)];
+  sx.fillStyle=(sliding)?'#E0892A':'#185FA5';sx.beginPath();sx.moveTo(q[0][0],q[0][1]);q.slice(1).forEach(p=>sx.lineTo(p[0],p[1]));sx.closePath();sx.fill();
+  sx.lineWidth=2;sx.strokeStyle=sliding?'#9c5a12':'#0f3f70';sx.stroke();
+  // status
+  tag(sliding?'SLIPS':'HOLDS',W*0.5,H*0.09,sliding?'#c0392b':'#1d7a37','center',16,800);
+  // tan vs mu gauge
+  const bx=W*0.16,bw=W*0.68,yy=H*0.78,mx=1.0,X=vv=>bx+bw*Math.min(vv,mx)/mx;
+  sx.strokeStyle='#e4dccb';sx.lineWidth=2;sx.beginPath();sx.moveTo(bx,yy);sx.lineTo(bx+bw,yy);sx.stroke();
+  sx.strokeStyle='#c0392b';sx.lineWidth=2;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(X(MUS),yy-H*0.02);sx.lineTo(X(MUS),yy+H*0.02);sx.stroke();sx.setLineDash([]);
+  tag('\u03bc\u209b = '+MUS.toFixed(2),X(MUS),yy-H*0.036,'#c0392b','center',10,800);
+  const tanv=Math.tan(th);sx.fillStyle=slips?'#c0392b':'#1D9E75';sx.fillRect(bx,yy+H*0.028,X(tanv)-bx,H*0.02);
+  tag('tan '+ang+'\u00b0 = '+tanv.toFixed(2),bx,yy+H*0.06,slips?'#c0392b':'#1d7a37','left',10.5,800);
+  tag(slips?('past the angle of repose ('+REP.toFixed(0)+'\u00b0): it slides'):('below repose: friction still grips'),W*0.5,H*0.90,'#8a8f80','center',10.5,700);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  const th=ang*Math.PI/180;
+  if(ang>=REP){sliding=true;const acc=Math.max(0.05,Math.sin(th)-MUK*Math.cos(th));v+=acc*700*dt;s-=v*dt;if(s<=minS()){s=minS();v=0;}}
+  draw();requestAnimationFrame(loop);}
+angE.addEventListener('input',()=>{ang=+angE.value;av.textContent=ang+'\u00b0';resetBlock();});
+window.addEventListener('resize',fit);fit();requestAnimationFrame(loop);
+</script></body></html>
