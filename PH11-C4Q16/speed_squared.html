@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Double the Speed, Four Times the Distance</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Double the Speed, Four Times the Distance</div>
+    <div class="sub">Same table, same deceleration. One coaster starts at v, the other at 2v. The faster one does not go twice as far, it goes four times as far.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="go">Launch both</button></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; distance &prop; speed&sup2;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333;
+let mode='ready',last=0,t=0;
+let s1=0,v1=0,s2=0,v2=0,d1=0,d2=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+const ACC=()=>W*0.34, x0=()=>W*0.08;
+function reset(){s1=0;v1=0;s2=0;v2=0;d1=ACC()>0?(Math.pow(W*0.30,2)/(2*ACC())):0;d2=Math.pow(W*0.60,2)/(2*ACC());mode='ready';go.textContent='Launch both';draw();}
+function trk(y,s,col,ec,lab){sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,y);sx.lineTo(W,y);sx.stroke();
+  for(let gx=W*0.05;gx<W;gx+=W*0.09){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.3;sx.beginPath();sx.moveTo(gx,y);sx.lineTo(gx-W*0.02,y+H*0.015);sx.stroke();}
+  const pw=W*0.10,ph=W*0.05,px=Math.min(x0()+s,W*0.92-pw);sx.fillStyle=col;sx.fillRect(px,y-ph,pw,ph);sx.lineWidth=2;sx.strokeStyle=ec;sx.strokeRect(px,y-ph,pw,ph);
+  tag(lab,W*0.06,y-ph-H*0.02,ec,'left',10.5,800);}
+function draw(){sx.clearRect(0,0,W,H);
+  trk(H*0.32,s1,'#185FA5','#0f3f70','starts at v');
+  trk(H*0.56,s2,'#E0892A','#9c5a12','starts at 2v');
+  // stop markers
+  if(mode!=='ready'){sx.setLineDash([5,4]);sx.lineWidth=2;
+    sx.strokeStyle='#0f3f70';sx.beginPath();sx.moveTo(x0()+d1,H*0.26);sx.lineTo(x0()+d1,H*0.34);sx.stroke();tag('d',x0()+d1,H*0.235,'#0f3f70','center',10,800);
+    sx.strokeStyle='#9c5a12';sx.beginPath();sx.moveTo(Math.min(x0()+d2,W*0.96),H*0.50);sx.lineTo(Math.min(x0()+d2,W*0.96),H*0.58);sx.stroke();tag('4d',Math.min(x0()+d2,W*0.96),H*0.475,'#9c5a12','center',10,800);sx.setLineDash([]);}
+  tag(mode==='done'?'2v coaster went 4x as far':(mode==='playing'?'both slowing at the same rate':'ready'),W*0.5,H*0.09,mode==='playing'?'#c0653a':'#1d7a37','center',13.5,800);
+  tag('stopping distance = speed\u00b2 \u00f7 (2 \u00d7 deceleration)',W*0.5,H*0.72,'#1b2348','center',11,800);
+  tag('so twice the speed means four times the distance',W*0.5,H*0.78,'#8a8f80','center',10.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  const a=ACC();
+  if(v1>0){s1+=v1*dt;v1-=a*dt;if(v1<0)v1=0;}
+  if(v2>0){s2+=v2*dt;v2-=a*dt;if(v2<0)v2=0;}
+  if(v1<=0&&v2<=0){mode='done';go.textContent='Reset';draw();return;}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;
+  if(mode==='done'){reset();}else{mode='playing';v1=W*0.30;v2=W*0.60;s1=0;s2=0;last=0;go.textContent='sliding...';requestAnimationFrame(loop);}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

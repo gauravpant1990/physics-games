@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Static Friction Holds the Box</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:44px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Static Friction Holds the Box</div>
+    <div class="sub">A basket hangs from a string over the table edge. Add weight and static friction on the box grows to match the pull, holding it, right up to its limit of 20 N.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>basket weight</label><input type="range" id="w" min="0" max="26" step="1" value="8"><span class="val" id="wv">8 N</span></div></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; holds until &mu;&#x209B;Mg = 20 N</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const wE=document.getElementById('w'),wv=document.getElementById('wv');
+let W=360,H=480;const ASPECT=1.3333,MAXS=20;let BW=8,mx=0,bv=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const over=BW>MAXS, fr=Math.min(BW,MAXS);
+  const ty=H*0.28,edge=W*0.70,rP=W*0.03;
+  // table
+  sx.fillStyle='#e7e0d1';sx.fillRect(0,ty,edge,H*0.06);sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.beginPath();sx.moveTo(0,ty);sx.lineTo(edge,ty);sx.stroke();
+  sx.beginPath();sx.moveTo(edge,ty);sx.lineTo(edge,ty+H*0.06);sx.stroke();
+  // box
+  const bw=W*0.15,bh=W*0.11,bx=W*0.24+mx,by=ty-bh;
+  sx.fillStyle=over?'#d84a3a':'#185FA5';sx.fillRect(bx,by,bw,bh);sx.lineWidth=2;sx.strokeStyle=over?'#9c2f22':'#0f3f70';sx.strokeRect(bx,by,bw,bh);
+  // string box->pulley->basket
+  const wheel=(x,y)=>{sx.fillStyle='#e8e2d4';sx.beginPath();sx.arc(x,y,rP,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#1b2348';sx.stroke();sx.fillStyle='#1b2348';sx.beginPath();sx.arc(x,y,rP*0.28,0,7);sx.fill();};
+  const ropeY=by+bh*0.5;
+  const basketY=ropeY+H*0.13+BW*H*0.0015+mx;
+  sx.strokeStyle='#bb8047';sx.lineWidth=3;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(bx+bw,ropeY);sx.lineTo(edge-rP,ropeY);sx.stroke();
+  sx.beginPath();sx.moveTo(edge+rP,ropeY);sx.lineTo(edge+rP,basketY);sx.stroke();
+  wheel(edge,ropeY);
+  // basket
+  sx.fillStyle='#cbb8dd';sx.beginPath();sx.moveTo(edge-W*0.05,basketY);sx.lineTo(edge+rP+W*0.05,basketY);sx.lineTo(edge+rP+W*0.035,basketY+W*0.075);sx.lineTo(edge-W*0.035,basketY+W*0.075);sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle='#7A4FA3';sx.stroke();
+  tag(BW+' N',edge+rP*0.5,basketY+W*0.11,'#7A4FA3','center',10.5,800);
+  // friction arrow on box (leftward) = tension
+  const sc=W*0.0075;arrow(bx,by+bh*0.5,-fr*sc,0,'#1D9E75',4.6);tag('friction '+fr+' N',bx-fr*sc-W*0.02,by+bh*0.5,'#1d7a37','right',10,800);
+  arrow(bx+bw,by+bh*0.5,fr*sc*0.0+W*0.001,0,'#8a8f80',1);
+  tag(over?'pull beats the limit, box starts to move':'static friction matches the pull, box stays',W*0.5,H*0.09,over?'#c0392b':'#1d7a37','center',13.5,800);
+  // bars: pull vs friction limit
+  const bx2=W*0.20,bw2=W*0.62,y1=H*0.73,barMax=26,X=v=>bw2*Math.min(v,barMax)/barMax;
+  tag('pull',bx2-W*0.02,y1+H*0.012,'#7A4FA3','right',9.5,800);sx.fillStyle='#cbb8dd';sx.fillRect(bx2,y1,X(BW),H*0.022);
+  tag('friction',bx2-W*0.02,y1+H*0.062,'#1D9E75','right',9.5,800);sx.fillStyle='#1D9E75';sx.fillRect(bx2,y1+H*0.05,X(fr),H*0.022);
+  sx.strokeStyle='#c0392b';sx.lineWidth=2;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(bx2+X(20),y1-H*0.01);sx.lineTo(bx2+X(20),y1+H*0.084);sx.stroke();sx.setLineDash([]);tag('limit 20',bx2+X(20),y1-H*0.028,'#c0392b','center',9.5,800);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(BW>MAXS){bv+=W*0.35*dt;mx+=bv*dt;if(mx>W*0.18){mx=W*0.18;bv=0;}}else{mx=0;bv=0;}
+  draw();requestAnimationFrame(loop);}
+wE.addEventListener('input',()=>{BW=+wE.value;wv.textContent=BW+' N';if(BW<=MAXS){mx=0;bv=0;}});
+window.addEventListener('resize',fit);fit();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Land the Coaster in a Zone</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:56px;text-align:right}
+  .btn{width:100%;margin-top:7px;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Land the Coaster in a Zone</div>
+    <div class="sub">Stopping distance is speed squared over 2&mu;&#x2096;g. Pick a launch speed, land in zone 5, and do not shoot off the edge past 1.0 m.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="ctl"><label>launch speed</label><input type="range" id="u" min="0.6" max="2.2" step="0.05" value="1.4"><span class="val" id="uv">1.40 m/s</span></div>
+    <button class="btn" id="go">Launch</button>
+  </div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; s = u&sup2; &divide; 2&mu;&#x2096;g</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const uE=document.getElementById('u'),uv=document.getElementById('uv'),go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333,MUKG=4; // 2*mu_k*g = 2*0.2*10 = 4
+let U=1.4,mode='ready',x=0,vis=0,last=0,target=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset(true);}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+const X0=()=>W*0.08, SCALE=()=>W*0.80/1.0; // 1.0 m spans to near right edge
+function dist(u){return u*u/MUKG;}
+function reset(keep){target=dist(U);x=0;vis=0;mode='ready';if(!keep)go.textContent='Launch';draw();}
+function draw(){sx.clearRect(0,0,W,H);
+  const ty=H*0.46, x0=X0(), sc=SCALE();
+  // zones 1..5 each 0.2 m, edge at 1.0
+  const cols=['#eef3ee','#e3efe0','#d7ead4','#c9e3c4','#b7d9b0'];
+  for(let z=0;z<5;z++){const a=x0+sc*z*0.2,b=x0+sc*(z+1)*0.2;sx.fillStyle=['#eef4ec','#e0eede','#cfe6ca','#bcdcb4','#a8d29e'][z];sx.fillRect(a,ty-H*0.03,b-a,H*0.03);
+    sx.strokeStyle='#9bbf92';sx.lineWidth=1;sx.strokeRect(a,ty-H*0.03,b-a,H*0.03);tag('z'+(z+1),(a+b)/2,ty-H*0.048,'#5b6172','center',9,800);}
+  // edge / cliff
+  const edge=x0+sc*1.0;sx.strokeStyle='#c0392b';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(edge,ty-H*0.05);sx.lineTo(edge,ty+H*0.02);sx.stroke();tag('edge 1.0 m',edge,ty+H*0.04,'#c0392b','center',9.5,800);
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,ty);sx.lineTo(edge,ty);sx.stroke();
+  // predicted stop marker (ready)
+  if(mode==='ready'){const pm=x0+Math.min(target,1.15)*sc;sx.strokeStyle='#185FA5';sx.lineWidth=2;sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(pm,ty-H*0.055);sx.lineTo(pm,ty);sx.stroke();sx.setLineDash([]);tag('predicted',pm,ty-H*0.072,'#185FA5','center',9.5,800);}
+  // coaster
+  const pw=W*0.08,ph=W*0.045,px=x0+Math.min(x,1.2)*sc;sx.fillStyle=(target>1.0)?'#d84a3a':'#185FA5';sx.fillRect(px,ty-ph,pw,ph);sx.lineWidth=2;sx.strokeStyle=(target>1.0)?'#9c2f22':'#0f3f70';sx.strokeRect(px,ty-ph,pw,ph);
+  const zone=Math.min(5,Math.floor(target/0.2)+ (target%0.2===0&&target>0?0:1));
+  let msg,col;
+  if(mode==='done'){if(target>1.0){msg='fell off the edge!';col='#c0392b';}else{msg='stopped in zone '+Math.max(1,Math.ceil(target/0.2));col=(Math.ceil(target/0.2)===5)?'#1d7a37':'#b06a18';}}
+  else if(mode==='playing'){msg='sliding...';col='#c0653a';}
+  else{msg=target>1.0?'too fast, will fall off':'aim for zone 5 (0.81 to 1.0 m)';col=target>1.0?'#c0392b':'#5b6172';}
+  tag(msg,W*0.5,H*0.09,col,'center',14,800);
+  tag('stopping distance = '+target.toFixed(2)+' m   (u = '+U.toFixed(2)+' m/s)',W*0.5,H*0.66,'#1b2348','center',11.5,800);
+  tag('zone 5 needs about 1.8 to 2.0 m/s',W*0.5,H*0.72,'#8a8f80','center',10.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  vis-=0; // simple ease toward target
+  x+=(target-x)*Math.min(1,dt*2.2)+0.001;
+  if(Math.abs(target-x)<0.005){x=target;mode='done';go.textContent='Reset';draw();return;}
+  draw();requestAnimationFrame(loop);}
+uE.addEventListener('input',()=>{U=+uE.value;uv.textContent=U.toFixed(2)+' m/s';reset(false);});
+go.addEventListener('click',()=>{if(mode==='playing')return;
+  if(mode==='done'){reset(false);}else{target=dist(U);x=0;mode='playing';last=0;go.textContent='sliding...';requestAnimationFrame(loop);}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>
