@@ -23,7 +23,7 @@ let W=360,H=480;const ASPECT=1.3333,MAXS=20;let BW=8,mx=0,bv=0,last=0;
 function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
 function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
 function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
-function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
 function draw(){sx.clearRect(0,0,W,H);
   const over=BW>MAXS, fr=Math.min(BW,MAXS);
   const ty=H*0.28,edge=W*0.70,rP=W*0.03;
@@ -45,7 +45,7 @@ function draw(){sx.clearRect(0,0,W,H);
   sx.fillStyle='#cbb8dd';sx.beginPath();sx.moveTo(edge-W*0.05,basketY);sx.lineTo(edge+rP+W*0.05,basketY);sx.lineTo(edge+rP+W*0.035,basketY+W*0.075);sx.lineTo(edge-W*0.035,basketY+W*0.075);sx.closePath();sx.fill();sx.lineWidth=2;sx.strokeStyle='#7A4FA3';sx.stroke();
   tag(BW+' N',edge+rP*0.5,basketY+W*0.11,'#7A4FA3','center',10.5,800);
   // friction arrow on box (leftward) = tension
-  const sc=W*0.0075;arrow(bx,by+bh*0.5,-fr*sc,0,'#1D9E75',4.6);tag('friction '+fr+' N',bx-fr*sc-W*0.02,by+bh*0.5,'#1d7a37','right',10,800);
+  const sc=W*0.0075;arrow(bx,by+bh*0.5,-fr*sc,0,'#1D9E75',4.6);tag('friction '+fr+' N',bx-fr*sc*0.5,by-H*0.022,'#1d7a37','center',10,800);
   arrow(bx+bw,by+bh*0.5,fr*sc*0.0+W*0.001,0,'#8a8f80',1);
   tag(over?'pull beats the limit, box starts to move':'static friction matches the pull, box stays',W*0.5,H*0.09,over?'#c0392b':'#1d7a37','center',13.5,800);
   // bars: pull vs friction limit
