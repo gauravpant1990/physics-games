@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Hanging Bob in an Accelerating Car</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:56px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Hanging Bob in an Accelerating Car</div>
+    <div class="sub">Inside an accelerating car, a hanging bob leans back. In the car's frame a pseudo force ma pushes it backward, so the string settles along the tilt of gravity plus that push.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>acceleration a</label><input type="range" id="a" min="0" max="15" step="0.5" value="6"><span class="val" id="av">6 m/s&sup2;</span></div></div>
+  <div class="foot">Laws of Motion &middot; Pseudo force &middot; tan&theta; = a / g</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const aE=document.getElementById('a'),av=document.getElementById('av');
+let W=360,H=480;const ASPECT=1.3333,G=10;let A=6,scroll=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=Math.atan2(A,G),si=Math.sin(th),co=Math.cos(th);
+  const gY=H*0.66;
+  // ground + car
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,gY);sx.lineTo(W,gY);sx.stroke();
+  const sp=W*0.12,off=((scroll%sp)+sp)%sp;sx.strokeStyle='#cdbfa3';sx.lineWidth=2.4;
+  for(let x=-sp+off;x<W+sp;x+=sp){sx.beginPath();sx.moveTo(x,gY+H*0.022);sx.lineTo(x+W*0.05,gY+H*0.022);sx.stroke();}
+  const cx0=W*0.16,cw=W*0.66,ch=W*0.34,cy0=gY-W*0.05-ch;
+  sx.fillStyle='#eef1f4';sx.fillRect(cx0,cy0,cw,ch);sx.lineWidth=2.5;sx.strokeStyle='#1b2348';sx.strokeRect(cx0,cy0,cw,ch);
+  const spin=scroll*0.06;[cx0+cw*0.24,cx0+cw*0.76].forEach(wx=>{sx.fillStyle='#1b2348';sx.beginPath();sx.arc(wx,gY-W*0.02,W*0.04,0,7);sx.fill();sx.strokeStyle='#8a93a8';sx.lineWidth=2;sx.beginPath();sx.moveTo(wx,gY-W*0.02);sx.lineTo(wx+Math.cos(spin)*W*0.032,gY-W*0.02+Math.sin(spin)*W*0.032);sx.stroke();});
+  tag('the road slides back in the car frame',cx0+cw*0.5,gY+H*0.075,'#8a8f80','center',10,700);
+  // string + bob
+  const ax=cx0+cw*0.5,ay=cy0+ch*0.04,Ls=ch*0.62;
+  const bx=ax-Ls*si,by=ay+Ls*co,r=W*0.035;
+  sx.strokeStyle='#8a8f80';sx.lineWidth=2;sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(bx,by);sx.stroke();
+  // vertical reference
+  sx.strokeStyle='#c9c2b4';sx.lineWidth=1.4;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(ax,ay+Ls);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle='#185FA5';sx.beginPath();sx.arc(bx,by,r,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.stroke();
+  // forces on bob (car frame)
+  const sc=W*0.011;
+  arrow(bx,by,0,G*sc,'#d9483b',3.6);tag('mg',bx+W*0.03,by+G*sc,'#d9483b','left',10,800);
+  arrow(bx,by,-A*sc,0,'#7A4FA3',3.6);tag('ma',bx-A*sc-W*0.02,by,'#7A4FA3','right',10,800);
+  arrow(bx,by,si*Math.hypot(A,G)*sc,-co*Math.hypot(A,G)*sc,'#2e6fdb',3);tag('tension',bx+si*W*0.14+W*0.02,by-co*W*0.10,'#2e6fdb','left',9.5,800);
+  // angle
+  tag('\u03b8 = '+(th*180/Math.PI).toFixed(0)+'\u00b0',ax+W*0.02,ay+Ls*0.5,'#1b2348','left',12,800);
+  tag('tan\u03b8 = a / g = '+(A/G).toFixed(2),W*0.5,H*0.92,'#1d7a37','center',12.5,800);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;scroll-=W*0.14*dt;draw();requestAnimationFrame(loop);}
+aE.addEventListener('input',()=>{A=+aE.value;av.textContent=A+' m/s\u00b2';});
+window.addEventListener('resize',fit);fit();requestAnimationFrame(loop);
+</script></body></html>
