@@ -13,50 +13,51 @@
 </style></head>
 <body><div class="wrap">
   <div class="card pad"><div class="head">Land the Coaster in a Zone</div>
-    <div class="sub">Stopping distance is speed squared over 2&mu;&#x2096;g. Pick a launch speed, land in zone 5, and do not shoot off the edge past 1.0 m.</div></div>
+    <div class="sub">Stopping distance is speed squared over 2&mu;&#x2096;g. The scoring zones fill the far half of the table. Land in zone 3 without shooting off the edge.</div></div>
   <div class="card"><canvas id="scene"></canvas></div>
   <div class="card pad">
-    <div class="ctl"><label>launch speed</label><input type="range" id="u" min="0.6" max="2.2" step="0.05" value="1.4"><span class="val" id="uv">1.40 m/s</span></div>
+    <div class="ctl"><label>launch speed</label><input type="range" id="u" min="0.9" max="2.1" step="0.05" value="1.5"><span class="val" id="uv">1.50 m/s</span></div>
     <button class="btn" id="go">Launch</button>
   </div>
   <div class="foot">Laws of Motion &middot; Friction &middot; s = u&sup2; &divide; 2&mu;&#x2096;g</div>
 </div>
 <script>
 const scn=document.getElementById('scene'),sx=scn.getContext('2d');const uE=document.getElementById('u'),uv=document.getElementById('uv'),go=document.getElementById('go');
-let W=360,H=480;const ASPECT=1.3333,MUKG=4; // 2*mu_k*g = 2*0.2*10 = 4
-let U=1.4,mode='ready',x=0,vis=0,last=0,target=0;
+let W=360,H=480;const ASPECT=1.3333,MUKG=4,LEN=1.0,ZS=0.5,ZW=(LEN-ZS)/3; // zones fill the far half, 3 of them
+let U=1.5,mode='ready',x=0,last=0,target=0;
 function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
 function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset(true);}
-function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
-const X0=()=>W*0.08, SCALE=()=>W*0.80/1.0; // 1.0 m spans to near right edge
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+const X0=()=>W*0.09, SCALE=()=>W*0.82/LEN;
 function dist(u){return u*u/MUKG;}
-function reset(keep){target=dist(U);x=0;vis=0;mode='ready';if(!keep)go.textContent='Launch';draw();}
+function reset(keep){target=dist(U);x=0;mode='ready';if(!keep)go.textContent='Launch';draw();}
 function draw(){sx.clearRect(0,0,W,H);
-  const ty=H*0.46, x0=X0(), sc=SCALE();
-  // zones 1..5 each 0.2 m, edge at 1.0
-  const cols=['#eef3ee','#e3efe0','#d7ead4','#c9e3c4','#b7d9b0'];
-  for(let z=0;z<5;z++){const a=x0+sc*z*0.2,b=x0+sc*(z+1)*0.2;sx.fillStyle=['#eef4ec','#e0eede','#cfe6ca','#bcdcb4','#a8d29e'][z];sx.fillRect(a,ty-H*0.03,b-a,H*0.03);
+  const ty=H*0.46, x0=X0(), sc=SCALE(), edge=x0+LEN*sc, zx=x0+ZS*sc;
+  // approach half
+  tag('approach',(x0+zx)/2,ty-H*0.028,'#b9b2a2','center',9.5,700);
+  // three zones over the far half
+  const cols=['#dcecd7','#aed3a2','#7abd6a'];
+  for(let z=0;z<3;z++){const a=zx+sc*z*ZW,b=zx+sc*(z+1)*ZW;sx.fillStyle=cols[z];sx.fillRect(a,ty-H*0.03,b-a,H*0.03);
     sx.strokeStyle='#9bbf92';sx.lineWidth=1;sx.strokeRect(a,ty-H*0.03,b-a,H*0.03);tag('z'+(z+1),(a+b)/2,ty-H*0.048,'#5b6172','center',9,800);}
-  // edge / cliff
-  const edge=x0+sc*1.0;sx.strokeStyle='#c0392b';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(edge,ty-H*0.05);sx.lineTo(edge,ty+H*0.02);sx.stroke();tag('edge 1.0 m',edge,ty+H*0.04,'#c0392b','center',9.5,800);
+  // half-way marker + edge
+  sx.strokeStyle='#8a8f9c';sx.lineWidth=1.4;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(zx,ty-H*0.06);sx.lineTo(zx,ty+H*0.01);sx.stroke();sx.setLineDash([]);tag('half',zx,ty+H*0.03,'#8a8f9c','center',9,800);
+  sx.strokeStyle='#c0392b';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(edge,ty-H*0.05);sx.lineTo(edge,ty+H*0.02);sx.stroke();tag('edge',edge,ty+H*0.045,'#c0392b','center',9.5,800);
   sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,ty);sx.lineTo(edge,ty);sx.stroke();
-  // predicted stop marker (ready)
-  if(mode==='ready'){const pm=x0+Math.min(target,1.15)*sc;sx.strokeStyle='#185FA5';sx.lineWidth=2;sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(pm,ty-H*0.055);sx.lineTo(pm,ty);sx.stroke();sx.setLineDash([]);tag('predicted',pm,ty-H*0.072,'#185FA5','center',9.5,800);}
+  // predicted marker
+  if(mode==='ready'){const pm=x0+Math.min(target,LEN*1.08)*sc;sx.strokeStyle='#185FA5';sx.lineWidth=2;sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(pm,ty-H*0.055);sx.lineTo(pm,ty);sx.stroke();sx.setLineDash([]);tag('predicted',pm,ty-H*0.072,'#185FA5','center',9.5,800);}
   // coaster
-  const pw=W*0.08,ph=W*0.045,px=x0+Math.min(x,1.2)*sc;sx.fillStyle=(target>1.0)?'#d84a3a':'#185FA5';sx.fillRect(px,ty-ph,pw,ph);sx.lineWidth=2;sx.strokeStyle=(target>1.0)?'#9c2f22':'#0f3f70';sx.strokeRect(px,ty-ph,pw,ph);
-  const zone=Math.min(5,Math.floor(target/0.2)+ (target%0.2===0&&target>0?0:1));
+  const pw=W*0.07,ph=W*0.048,px=x0+Math.min(x,LEN*1.08)*sc-pw*0.5;sx.fillStyle=(target>LEN)?'#d84a3a':'#185FA5';sx.fillRect(px,ty-ph,pw,ph);sx.lineWidth=2;sx.strokeStyle=(target>LEN)?'#9c2f22':'#0f3f70';sx.strokeRect(px,ty-ph,pw,ph);
   let msg,col;
-  if(mode==='done'){if(target>1.0){msg='fell off the edge!';col='#c0392b';}else{msg='stopped in zone '+Math.max(1,Math.ceil(target/0.2));col=(Math.ceil(target/0.2)===5)?'#1d7a37':'#b06a18';}}
+  if(mode==='done'){if(target>LEN){msg='fell off the edge!';col='#c0392b';}else if(target<ZS){msg='stopped short of the zones';col='#b06a18';}else{const z=Math.min(3,Math.max(1,Math.ceil((target-ZS)/ZW)));msg='stopped in zone '+z;col=(z===3)?'#1d7a37':'#b06a18';}}
   else if(mode==='playing'){msg='sliding...';col='#c0653a';}
-  else{msg=target>1.0?'too fast, will fall off':'aim for zone 5 (0.81 to 1.0 m)';col=target>1.0?'#c0392b':'#5b6172';}
+  else{msg=target>LEN?'too fast, will fall off':(target<ZS?'too slow, stops before the zones':'aim for zone 3');col=(target>LEN||target<ZS)?'#c0392b':'#5b6172';}
   tag(msg,W*0.5,H*0.09,col,'center',14,800);
   tag('stopping distance = '+target.toFixed(2)+' m   (u = '+U.toFixed(2)+' m/s)',W*0.5,H*0.66,'#1b2348','center',11.5,800);
-  tag('zone 5 needs about 1.8 to 2.0 m/s',W*0.5,H*0.72,'#8a8f80','center',10.5,700);
+  tag('zones start at the half mark; zone 3 needs about 1.83 to 2.0 m/s',W*0.5,H*0.72,'#8a8f80','center',10,700);
 }
 function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
-  vis-=0; // simple ease toward target
-  x+=(target-x)*Math.min(1,dt*2.2)+0.001;
-  if(Math.abs(target-x)<0.005){x=target;mode='done';go.textContent='Reset';draw();return;}
+  x+=(target-x)*Math.min(1,dt*2.2)+0.0015;
+  if(Math.abs(target-x)<0.004){x=target;mode='done';go.textContent='Reset';draw();return;}
   draw();requestAnimationFrame(loop);}
 uE.addEventListener('input',()=>{U=+uE.value;uv.textContent=U.toFixed(2)+' m/s';reset(false);});
 go.addEventListener('click',()=>{if(mode==='playing')return;
