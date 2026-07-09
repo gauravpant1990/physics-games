@@ -12,45 +12,57 @@
 </style></head>
 <body><div class="wrap">
   <div class="card pad"><div class="head">Best Angle to Pull a Block</div>
-    <div class="sub">Pull flat and you fight full friction; pull too steep and you barely move it forward. There is a sweet angle where the pull needed is smallest.</div></div>
+    <div class="sub">Tilt the pull up and the normal force drops, so friction drops too. But less of your pull goes forward. Somewhere in between the pull needed is smallest.</div></div>
   <div class="card"><canvas id="scene"></canvas></div>
   <div class="card pad"><div class="ctl"><label>pull angle</label><input type="range" id="a" min="0" max="80" step="1" value="10"><span class="val" id="av">10&deg;</span></div></div>
   <div class="foot">Laws of Motion &middot; Friction &middot; least pull at angle = tan&#8315;&sup1;&mu;</div>
 </div>
 <script>
 const scn=document.getElementById('scene'),sx=scn.getContext('2d');const aE=document.getElementById('a'),av=document.getElementById('av');
-let W=360,H=480;const ASPECT=1.3333,MU=0.5,MG=20;
+let W=360,H=480;const ASPECT=1.3333,MU=0.5,M=2,G=10,MG=M*G;
 const BEST=Math.atan(MU)*180/Math.PI;
-let ang=10;
 function P(deg){const a=deg*Math.PI/180;return MU*MG/(Math.cos(a)+MU*Math.sin(a));}
+let ang=10;
 function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
 function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
-function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
 function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.9)';sx.lineJoin='round';sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
 function draw(){sx.clearRect(0,0,W,H);
-  const a=ang*Math.PI/180,gY=H*0.40,p=P(ang);
+  const a=ang*Math.PI/180, gY=H*0.34, p=P(ang), N=MG-p*Math.sin(a), fric=MU*N;
   sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,gY);sx.lineTo(W,gY);sx.stroke();
-  for(let gx=W*0.05;gx<W;gx+=W*0.09){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.3;sx.beginPath();sx.moveTo(gx,gY);sx.lineTo(gx-W*0.02,gY+H*0.018);sx.stroke();}
-  const bw=W*0.16,bh=W*0.12,bx=W*0.34,by=gY-bh,cxp=bx+bw,cyp=by+bh*0.5;
-  sx.fillStyle='#185FA5';sx.fillRect(bx,by,bw,bh);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(bx,by,bw,bh);
-  // pull force at angle
-  const pl=W*0.0075*p+W*0.06;arrow(cxp,cyp,Math.cos(a)*pl,-Math.sin(a)*pl,'#e88b00',4.6);tag('pull P',cxp+Math.cos(a)*pl+W*0.02,cyp-Math.sin(a)*pl,'#c47400','left',10.5,800);
-  // angle ref
-  sx.strokeStyle='#c9c2b4';sx.lineWidth=1.4;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(cxp,cyp);sx.lineTo(cxp+pl*0.7,cyp);sx.stroke();sx.setLineDash([]);
-  tag(ang+'\u00b0',cxp+pl*0.4,cyp-H*0.016,'#8a8f80','center',9.5,800);
-  arrow(bx,by+bh*0.5,-W*0.05,0,'#1D9E75',3.4);tag('friction',bx-W*0.07,by+bh*0.5,'#1d7a37','right',9.5,800);
-  arrow(bx+bw*0.5,by,0,-W*0.001,'#8a8f80',1);
-  // P vs angle curve
-  const gx0=W*0.14,gw=W*0.72,gy0=H*0.62,gh=H*0.22;
+  for(let gx=W*0.05;gx<W;gx+=W*0.09){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.3;sx.beginPath();sx.moveTo(gx,gY);sx.lineTo(gx-W*0.02,gY+H*0.015);sx.stroke();}
+  const bw=W*0.14,bh=W*0.10,bx=W*0.30,by=gY-bh,cxb=bx+bw*0.5,cyb=by+bh*0.5;
+  sx.fillStyle='rgba(27,35,72,0.3)';sx.fillRect(bx,by,bw,bh);
+  const sc=W*0.0082;
+  // weight, normal, friction, pull  (all from block centre)
+  arrow(cxb,cyb,0,MG*sc,'#d9483b',3.2);tag('mg = '+MG+' N',cxb,cyb+MG*sc+H*0.02,'#d9483b','center',9.5,800);
+  arrow(cxb,cyb,0,-N*sc,'#2e6fdb',3.2);tag('N = '+N.toFixed(0)+' N',cxb,cyb-N*sc-H*0.018,'#2e6fdb','center',9.5,800);
+  arrow(cxb,cyb,-fric*sc*2,0,'#2fa84f',3.2);tag('friction '+fric.toFixed(1)+' N',cxb-fric*sc*2-W*0.02,cyb,'#1d7a37','right',9.5,800);
+  const pl=p*sc*2; arrow(cxb,cyb,Math.cos(a)*pl,-Math.sin(a)*pl,'#e88b00',3.6);tag('P '+p.toFixed(1)+' N',cxb+Math.cos(a)*pl+W*0.02,cyb-Math.sin(a)*pl,'#c47400','left',9.5,800);
+  // angle marker at pull base
+  sx.strokeStyle='#c9c2b4';sx.lineWidth=1.4;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(cxb,cyb);sx.lineTo(cxb+W*0.10,cyb);sx.stroke();sx.setLineDash([]);tag(ang+'\u00b0',cxb+W*0.075,cyb-H*0.014,'#8a8f80','center',9,800);
+  // formula
+  tag('N = mg \u2212 P sin\u03b8      friction = \u03bcN      \u03bc = '+MU,W*0.5,H*0.50,'#5b6172','center',10,700);
+  // ---- graph ----
+  const gx0=W*0.16,gw=W*0.70,gy0=H*0.58,gh=H*0.22;
   let Pmin=1e9,Pmax=-1e9;for(let d=0;d<=80;d+=2){const pv=P(d);if(pv<Pmin)Pmin=pv;if(pv>Pmax)Pmax=pv;}
-  const yOf=pv=>gy0+gh*(0.06+0.88*(1-(pv-Pmin)/(Pmax-Pmin)));
-  sx.strokeStyle='#1b2348';sx.lineWidth=1.6;sx.beginPath();sx.moveTo(gx0,gy0);sx.lineTo(gx0,gy0+gh);sx.lineTo(gx0+gw,gy0+gh);sx.stroke();
-  tag('pull needed',gx0+W*0.02,gy0-H*0.014,'#5b6172','left',9,800);tag('angle',gx0+gw-W*0.02,gy0+gh+H*0.02,'#5b6172','right',9,800);
-  sx.strokeStyle='#e88b00';sx.lineWidth=2.4;sx.beginPath();
-  for(let deg=0;deg<=80;deg+=2){const xx=gx0+gw*deg/80, yy=yOf(P(deg));if(deg===0)sx.moveTo(xx,yy);else sx.lineTo(xx,yy);}sx.stroke();
-  const bxp=gx0+gw*BEST/80;sx.strokeStyle='#1d7a37';sx.lineWidth=1.6;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(bxp,gy0);sx.lineTo(bxp,gy0+gh);sx.stroke();sx.setLineDash([]);tag('min at '+BEST.toFixed(0)+'\u00b0',bxp,gy0-H*0.004,'#1d7a37','center',9.5,800);
+  const yOf=pv=>gy0+gh*(0.08+0.84*(1-(pv-Pmin)/(Pmax-Pmin)));
+  sx.strokeStyle='#1b2348';sx.lineWidth=1.6;sx.beginPath();sx.moveTo(gx0,gy0-H*0.01);sx.lineTo(gx0,gy0+gh);sx.lineTo(gx0+gw,gy0+gh);sx.stroke();
+  // curve
+  sx.strokeStyle='#e88b00';sx.lineWidth=2.4;sx.beginPath();for(let deg=0;deg<=80;deg+=2){const xx=gx0+gw*deg/80, yy=yOf(P(deg));if(deg===0)sx.moveTo(xx,yy);else sx.lineTo(xx,yy);}sx.stroke();
+  // best marker
+  const bxp=gx0+gw*BEST/80;sx.strokeStyle='#1d7a37';sx.lineWidth=1.4;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(bxp,gy0);sx.lineTo(bxp,gy0+gh);sx.stroke();sx.setLineDash([]);
+  // current marker
   const cxm=gx0+gw*ang/80;sx.fillStyle='#185FA5';sx.beginPath();sx.arc(cxm,yOf(p),W*0.014,0,7);sx.fill();
-  tag('P = '+p.toFixed(1)+' N'+(Math.abs(ang-BEST)<2?'   (smallest)':''),W*0.5,H*0.92,Math.abs(ang-BEST)<2?'#1d7a37':'#1b2348','center',12,800);
+  // axis labels + ticks
+  tag('pull force P (N)',gx0+W*0.02,gy0-H*0.022,'#5b6172','left',9,800);
+  tag('pull angle \u03b8 (degrees)',gx0+gw*0.5,gy0+gh+H*0.03,'#5b6172','center',9.5,800);
+  tag(Pmax.toFixed(0),gx0-W*0.015,yOf(Pmax),'#8a8f80','right',8.5,800);
+  tag(Pmin.toFixed(1),gx0-W*0.015,yOf(Pmin),'#1d7a37','right',8.5,800);
+  tag('0',gx0,gy0+gh+H*0.016,'#8a8f80','center',8.5,800);
+  tag('80',gx0+gw,gy0+gh+H*0.016,'#8a8f80','center',8.5,800);
+  tag(BEST.toFixed(0),bxp,gy0+gh+H*0.016,'#1d7a37','center',8.5,800);
+  tag('P = '+p.toFixed(1)+' N'+(Math.abs(ang-BEST)<2?'   (smallest)':''),W*0.5,H*0.945,Math.abs(ang-BEST)<2?'#1d7a37':'#1b2348','center',11.5,800);
 }
 aE.addEventListener('input',()=>{ang=+aE.value;av.textContent=ang+'\u00b0';draw();});
 window.addEventListener('resize',fit);fit();
