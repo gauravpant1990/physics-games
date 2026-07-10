@@ -59,7 +59,7 @@ function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(t
   vt+=at*k*1.6*dt;vb+=ab*k*1.6*dt;scroll-=vb*dt;
   const b2w=W*0.30,b1w=W*0.16,relMax=(b2w-b1w)/2-W*0.005,cmEdge=relMax+b1w/2;
   if(!offEdge){rel+=(vt-vb)*dt;if(rel>cmEdge){rel=cmEdge;offEdge=true;mode='done';go.textContent='Reset';go.className='btn';draw();return;}}
-  if(t>7.0){mode='done';go.textContent='Reset';draw();return;}
+  if(t>7.0){mode='done';go.textContent='Reset';go.className='btn';draw();return;}
   draw();requestAnimationFrame(loop);}
 go.addEventListener('click',()=>{if(mode==='playing')return;
   if(mode==='done'){reset();}else{vt=vb=rel=scroll=t=0;mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
