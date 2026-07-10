@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pull the Bottom Block</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:44px;text-align:right}
+  .btn{width:100%;margin-top:7px;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Pull the Bottom Block</div>
+    <div class="sub">The floor is frictionless; the only grip is between the blocks. That friction is what drags the top block along, until you pull too hard and it can no longer keep up.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>pull force F</label><input type="range" id="f" min="0" max="24" step="0.5" value="9"><span class="val" id="fv">9 N</span></div>
+    <button class="btn" id="go">Play</button></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; slips when F &gt; 15 N &nbsp;(&mu;&#x209B;=0.5, &mu;&#x2096;=0.3)</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const fE=document.getElementById('f'),fv=document.getElementById('fv'),go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333,M1=1,M2=2,MUS=0.5,MUK=0.3,G=10;
+const NB=M1*G, FSMAX=MUS*NB, FK=MUK*NB, FMAX=FSMAX*(M1+M2)/M1; // 10,5,3,15
+let F=9,mode='ready',vt=0,vb=0,rel=0,scroll=0,t=0,last=0,offEdge=false,dx=0,dy=0,vy=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function reset(){vt=vb=rel=scroll=t=dx=dy=vy=0;offEdge=false;mode='ready';go.textContent='Play';go.className='btn';draw();}
+function draw(){sx.clearRect(0,0,W,H);
+  const slip=F>FMAX+0.001;
+  const at=slip?FK/M1:F/(M1+M2), ab=slip?(F-FK)/M2:F/(M1+M2), fric=offEdge?0:(slip?FK:F*M1/(M1+M2));
+  const fy=H*0.52, cx=W*0.42;
+  // frictionless floor
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.5;sx.beginPath();sx.moveTo(0,fy);sx.lineTo(W,fy);sx.stroke();
+  const sp=W*0.1,off=((scroll%sp)+sp)%sp;for(let x=-sp+off;x<W+sp;x+=sp){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.3;sx.beginPath();sx.moveTo(x,fy);sx.lineTo(x-W*0.018,fy+H*0.016);sx.stroke();}
+  tag('frictionless floor',W*0.5,fy+H*0.045,'#8a8f80','center',9.5,700);
+  // bottom block (m2) centred
+  const b2w=W*0.30,b2h=W*0.12,b2x=cx-b2w/2,b2y=fy-b2h;
+  sx.fillStyle='#185FA5';sx.fillRect(b2x,b2y,b2w,b2h);sx.lineWidth=2;sx.strokeStyle='#0f3f70';sx.strokeRect(b2x,b2y,b2w,b2h);
+  tag('2 kg',cx,b2y+b2h*0.5,'#fff','center',11,800);
+  // top block (m1) with relative offset (lags back when slipping)
+  const b1w=W*0.16,b1h=W*0.10,relMax=(b2w-b1w)/2-W*0.005,ro=Math.max(-(relMax+b1w/2),Math.min(0,rel));
+  const b1x=cx-b1w/2+ro+dx,b1y=b2y-b1h+dy;
+  sx.fillStyle='#7A4FA3';sx.fillRect(b1x,b1y,b1w,b1h);sx.lineWidth=2;sx.strokeStyle='#512f73';sx.strokeRect(b1x,b1y,b1w,b1h);sx.fillStyle='#fff';sx.font='800 10.5px Trebuchet MS,sans-serif';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('1 kg',b1x+b1w*0.5,b1y+b1h*0.5);sx.textAlign='center';sx.textBaseline='alphabetic';
+  // pull on bottom
+  const sc=W*0.011;arrow(b2x+b2w,b2y+b2h*0.5,F*sc,0,'#e88b00',4.4);tag('F = '+F+' N',b2x+b2w+F*sc+W*0.02,b2y+b2h*0.5,'#c47400','left',10,800);
+  // friction on top (forward)
+  arrow(b1x+b1w*0.5,b1y+b1h*0.5,fric*sc*7.2,0,'#2fa84f',3.8);tag('friction '+fric.toFixed(1)+' N',b1x+b1w*0.5+fric*sc*7.2+W*0.02,b1y-H*0.025,'#1d7a37','left',10.5,800);
+  // status + readouts
+  tag(offEdge?'block falls':(slip?'top block slips back, it cannot keep up':'they move together'),W*0.5,H*0.085,(slip||offEdge)?'#c0392b':'#1d7a37','center',13.5,800);
+  const gap=H*0.055;let y0=H*0.70;
+  tag('friction on top = '+fric.toFixed(1)+' N'+(slip?'  (kinetic)':'  of max '+FSMAX),W*0.5,y0,'#1b2348','center',11.5,800);
+  if(slip){tag('top a = '+at.toFixed(1)+' m/s\u00b2      bottom a = '+ab.toFixed(1)+' m/s\u00b2',W*0.5,y0+gap,'#c0392b','center',11.5,800);}
+  else{tag('both accelerate at a = F/3 = '+at.toFixed(1)+' m/s\u00b2',W*0.5,y0+gap,'#1d7a37','center',11.5,800);}
+  tag('friction alone drives the top block: f = m\u2081 a',W*0.5,y0+2*gap,'#8a8f80','center',10.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;t+=dt;
+  const slip=F>FMAX+0.001, k=W*0.05;
+  const at=offEdge?0:(slip?FK/M1:F/(M1+M2)), ab=offEdge?F/M2:(slip?(F-FK)/M2:F/(M1+M2));
+  vt+=at*k*1.6*dt;vb+=ab*k*1.6*dt;scroll-=vb*dt;
+  const b2w=W*0.30,b1w=W*0.16,relMax=(b2w-b1w)/2-W*0.005,cmEdge=relMax+b1w/2;
+  if(!offEdge){rel+=(vt-vb)*dt;if(rel<-cmEdge){rel=-cmEdge;offEdge=true;mode='done';go.textContent='Reset';go.className='btn';draw();return;}}
+  if(t>7.0){mode='done';go.textContent='Reset';draw();return;}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;
+  if(mode==='done'){reset();}else{vt=vb=rel=scroll=t=0;mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
+fE.addEventListener('input',()=>{F=+fE.value;fv.textContent=F+' N';if(mode!=='playing'){reset();}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

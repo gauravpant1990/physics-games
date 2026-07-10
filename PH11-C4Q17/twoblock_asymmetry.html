@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Same Pull, Different Snap</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Same Pull, Different Snap</div>
+    <div class="sub">Two identical stacks, one growing force applied to both. The grip is the same 5 N, but it snaps at half the force when it must drag the heavier block.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="go">Play</button></div>
+  <div class="foot">Laws of Motion &middot; Friction &middot; F<sub>max</sub> = 5(1+2)/m<sub>passive</sub> &rarr; 15 N vs 7.5 N</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333,M1=1,M2=2,FSMAX=5,FK=3,RAMP=2.2,FEND=18;
+let mode='ready',F=0,last=0;
+const st={b:{snap:0,rel:0,vt:0,vb:0,scroll:0,fell:false},t:{snap:0,rel:0,vt:0,vb:0,scroll:0,fell:false}};
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function reset(){F=0;['b','t'].forEach(k=>{st[k].snap=0;st[k].rel=0;st[k].vt=0;st[k].vb=0;st[k].scroll=0;st[k].fell=false;st[k].fF=0;});mode='ready';go.textContent='Play';go.className='btn';draw();}
+function stack(fy,kind){
+  const S=st[kind==='bottom'?'b':'t'], slipped=S.snap>0, cx=W*0.40;
+  const dead=S.fell, Fd=dead?(S.fF||F):F;
+  const cB2=dead?'#aeb4c0':'#185FA5', eB2=dead?'#868d9c':'#0f3f70';
+  const cB1=dead?'#c3c7cf':(slipped?'#d9483b':'#7A4FA3'), eB1=dead?'#9aa0ac':(slipped?'#9c2f22':'#512f73');
+  const cAr=dead?'#b0a89a':'#e88b00';
+  sx.strokeStyle='#1b2348';sx.lineWidth=2.2;sx.beginPath();sx.moveTo(0,fy);sx.lineTo(W,fy);sx.stroke();
+  const sp=W*0.1,off=((S.scroll%sp)+sp)%sp;for(let x=-sp+off;x<W+sp;x+=sp){sx.strokeStyle='#cdbfa3';sx.lineWidth=1.2;sx.beginPath();sx.moveTo(x,fy);sx.lineTo(x-W*0.016,fy+H*0.013);sx.stroke();}
+  const b2w=W*0.26,b2h=W*0.10,b2x=cx-b2w/2,b2y=fy-b2h;
+  const b1w=W*0.14,b1h=W*0.085,relMax=(b2w-b1w)/2-W*0.004;
+  const cmE=relMax+b1w/2;const ro=kind==='bottom'?Math.max(-cmE,Math.min(0,S.rel)):Math.max(0,Math.min(cmE,S.rel));
+  const b1x=cx-b1w/2+ro,b1y=b2y-b1h;
+  sx.fillStyle=cB2;sx.fillRect(b2x,b2y,b2w,b2h);sx.lineWidth=1.8;sx.strokeStyle=eB2;sx.strokeRect(b2x,b2y,b2w,b2h);tag('2',cx,b2y+b2h*0.5,'#fff','center',10,800);
+  sx.fillStyle=cB1;sx.fillRect(b1x,b1y,b1w,b1h);sx.lineWidth=1.8;sx.strokeStyle=eB1;sx.strokeRect(b1x,b1y,b1w,b1h);tag('1',b1x+b1w*0.5,b1y+b1h*0.5,'#fff','center',9.5,800);
+  const sc=W*0.008;
+  if(kind==='bottom')arrow(b2x+b2w,b2y+b2h*0.5,Math.max(2,F*sc),0,'#e88b00',3.6);
+  else arrow(b1x+b1w+ro*0,b1y+b1h*0.5,Math.max(2,F*sc),0,'#e88b00',3.6);
+  tag(kind==='bottom'?'pull the bottom':'pull the top',W*0.04,b1y-H*0.008,dead?'#8a8f9c':'#1b2348','left',10,800);
+  const lim=kind==='bottom'?15:7.5;
+  tag(S.fell?('block falls (F held at '+(S.fF||F).toFixed(1)+' N)'):(slipped?('snapped at '+S.snap.toFixed(1)+' N'):(mode!=='ready'?'holding':'F max = '+lim+' N')),W*0.96,b1y-H*0.008,S.fell?'#8a8f9c':(slipped?'#c0392b':'#1d7a37'),'right',10,800);
+}
+function draw(){sx.clearRect(0,0,W,H);
+  stack(H*0.30,'bottom');
+  stack(H*0.60,'top');
+  // shared force meter
+  const bx=W*0.20,bw=W*0.62,y1=H*0.70,X=v=>bw*Math.min(v,FEND)/FEND;
+  tag('F',bx-W*0.02,y1+H*0.013,'#c47400','right',10.5,800);
+  sx.fillStyle='#f4e3c8';sx.fillRect(bx,y1,bw,H*0.026);
+  sx.fillStyle='#e88b00';sx.fillRect(bx,y1,X(F),H*0.026);
+  [['7.5','#c0392b',7.5],['15','#c0392b',15]].forEach(m=>{sx.strokeStyle=m[1];sx.lineWidth=2;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(bx+X(m[2]),y1-H*0.012);sx.lineTo(bx+X(m[2]),y1+H*0.048);sx.stroke();sx.setLineDash([]);tag(m[0],bx+X(m[2]),y1-H*0.028,'#c0392b','center',9,800);});
+  tag('F = '+F.toFixed(1)+' N',bx+bw+W*0.03,y1+H*0.013,'#c47400','left',10,800);
+  tag('same 5 N grip, but it must drag 2 kg when you pull the top',W*0.5,H*0.80,'#1b2348','center',10.5,800);
+  tag('so that stack snaps at half the force',W*0.5,H*0.855,'#8a8f80','center',10.5,700);
+}
+function step(S,kind,dt){
+  if(S.fell)return;
+  const k=W*0.075, lim=kind==='bottom'?15:7.5;
+  if(!S.snap){
+    if(F>=lim){S.snap=lim;}
+    const a=F/(M1+M2);S.vt+=a*k*dt;S.vb+=a*k*dt;S.scroll-=S.vb*dt;
+  }else{
+    const at=kind==='bottom'?FK/M1:(F-FK)/M1, ab=kind==='bottom'?(F-FK)/M2:FK/M2;
+    S.vt+=at*k*dt;S.vb+=ab*k*dt;S.scroll-=S.vb*dt;
+    const cmEdge=(W*0.26-W*0.14)/2-W*0.004+W*0.14/2;
+    if(!S.fell){S.rel+=(S.vt-S.vb)*dt;if(Math.abs(S.rel)>=cmEdge){S.rel=Math.sign(S.rel)*cmEdge;S.fell=true;S.fF=F;}}
+  }
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  F=Math.min(FEND,F+RAMP*dt);
+  step(st.b,'bottom',dt);step(st.t,'top',dt);
+  if(st.b.fell&&st.t.fell){mode='done';go.textContent='Reset';go.className='btn';draw();return;}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;
+  if(mode==='done'){reset();}else{reset();mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>
