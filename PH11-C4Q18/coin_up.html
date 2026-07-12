@@ -1,0 +1,160 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Coin on an Accelerating Car Windshield</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;--gold:#ffcf33;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}
+  .card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}
+  .card.pad{padding:10px 11px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .fpanel{display:flex;gap:8px;justify-content:center}
+  .fbtn{flex:1;font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 0;border-radius:9px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .fbtn.on{background:var(--navy);color:var(--gold)}
+  .fbtn.pri{background:#2fa84f;color:#fff;border-color:#1d7a37}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card pad">
+    <div class="head" id="hd">Coin on an Accelerating Car Windshield</div>
+    <div class="sub" id="sb">The car moves with acceleration a = 10 m/s&sup2;. A coin rests on its smooth 37&deg; windshield.</div>
+  </div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad">
+    <div class="fpanel" id="fbtns">
+      <button class="fbtn on" data-f="ground">Ground frame</button>
+      <button class="fbtn" data-f="wedge">Windshield frame</button>
+    </div>
+  </div>
+  <div class="card pad">
+    <div class="fpanel">
+      <button class="fbtn pri" id="play">Play</button>
+    </div>
+  </div>
+  <div class="foot">Laws of Motion &middot; Pseudo Force &middot; coin on an accelerating car windshield</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');
+const fbtns=document.getElementById('fbtns');
+const play=document.getElementById('play');
+let W=360,H=414;const ASPECT=1.04;
+const ST=0.6, CT=0.8, g=10, Lm=1.0, TS=0.27;
+const A=10;                                     // fixed acceleration for this case
+const aRel=CT*A-ST*g;                           // along-incline relative accel
+let frame='ground', dist=0, distV=0, u=0.5, vu=0, last=0, elapsed=0, running=false, finished=false;
+
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;
+  scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');
+  const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;
+  const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);
+  let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;
+  for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));
+    wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}
+  draw();}
+
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(12,L*0.5);
+  sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();
+  sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);
+  sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz){sx.font='800 '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';
+  sx.textBaseline='middle';sx.lineWidth=3.2;sx.strokeStyle='rgba(255,255,255,.95)';sx.lineJoin='round';
+  sx.strokeText(t,x,y);sx.fillStyle=col;sx.fillText(t,x,y);}
+
+function wedge(cx,groundY,Wd){
+  const h=Wd*0.75, A2={x:cx-Wd/2,y:groundY}, B={x:cx+Wd/2,y:groundY}, T={x:cx-Wd/2,y:groundY-h};
+  sx.beginPath();sx.moveTo(A2.x,A2.y);sx.lineTo(B.x,B.y);sx.lineTo(T.x,T.y);sx.closePath();
+  sx.fillStyle='#e7ecf5';sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.strokeStyle='#185FA5';sx.lineWidth=2.6;sx.lineCap='round';sx.beginPath();sx.moveTo(B.x,B.y);sx.lineTo(T.x,T.y);sx.stroke();
+  sx.strokeStyle='#1b2348';sx.lineWidth=1.5;sx.beginPath();sx.arc(B.x,B.y,Wd*0.28,Math.PI,Math.PI+Math.atan2(ST,CT));sx.stroke();
+  tag('37\u00B0',B.x-Wd*0.40,B.y-Wd*0.12,'#1b2348','center',10);
+  return {B,T};
+}
+
+function fbd(cx,cy,ground){
+  const fs=H*0.115/g, Lmg=g*fs, Nmag=g*CT+A*ST, r=W*0.032, ex=W*0.15;
+  // incline context
+  sx.strokeStyle='#b9b09a';sx.lineWidth=4;sx.lineCap='round';
+  sx.beginPath();sx.moveTo(cx-ex*CT,cy-ex*ST);sx.lineTo(cx+ex*CT,cy+ex*ST);sx.stroke();
+  // component forces (mg + N always, pseudo only in windshield frame)
+  arrow(cx,cy,0,Lmg,'#E24B4A',4);                          tag('mg',cx,cy+Lmg+H*0.024,'#E24B4A','center',11);
+  arrow(cx+ST*r,cy-CT*r,ST*Nmag*fs,-CT*Nmag*fs,'#185FA5',3.6);
+  tag('N',cx+ST*Nmag*fs+W*0.026,cy-CT*Nmag*fs,'#185FA5','left',11);
+  if(!ground){ arrow(cx-r,cy,-A*fs,0,'#7A4FA3',3.6);
+    tag('pseudo = ma',cx-r-A*fs-W*0.02,cy+H*0.03,'#7A4FA3','right',10); }
+  // NET (resultant) force, true direction at a readable length
+  const nx0=(ground?Nmag*ST:Nmag*ST-A), ny0=(g-Nmag*CT), nM0=Math.hypot(nx0,ny0);
+  if(nM0>0.15){
+    const L=Math.max(W*0.075,Math.min(W*0.14,nM0*fs)), nx=nx0/nM0*L, ny=ny0/nM0*L;
+    arrow(cx,cy,nx,ny,'#1D9E75',5.4);
+    const lx=cx+nx+(nx>=0?W*0.02:-W*0.02), ly=cy+ny+(ny<=0?-H*0.024:H*0.024);
+    tag('net force',lx,ly,'#1D9E75',nx>=0?'left':'right',10.5);
+  }else{
+    sx.beginPath();sx.arc(cx,cy,r*1.7,0,7);sx.strokeStyle='#1D9E75';sx.lineWidth=2.4;sx.setLineDash([4,4]);sx.stroke();sx.setLineDash([]);
+    tag('net = 0',cx,cy-H*0.085,'#1D9E75','center',12);
+  }
+  // coin on top of the shared tails
+  sx.beginPath();sx.arc(cx,cy,r,0,7);sx.fillStyle='#ffcf33';sx.fill();sx.lineWidth=2;sx.strokeStyle='#b98900';sx.stroke();
+}
+
+function draw(){sx.clearRect(0,0,W,H);
+  const ground=frame==='ground';
+  const groundY=H*0.33, Wd=W*0.34, startX=W*0.16;
+  // sky + ground + posts
+  sx.fillStyle='#eef3f6';sx.fillRect(0,0,W,groundY);
+  sx.strokeStyle='#1b2348';sx.lineWidth=2;sx.beginPath();sx.moveTo(0,groundY);sx.lineTo(W,groundY);sx.stroke();
+  const PS=W*0.10, poff=ground?0:(dist%PS);
+  sx.strokeStyle='#b9b09a';sx.lineWidth=3;
+  for(let i=-1;i<W/PS+2;i++){const px=i*PS-poff;sx.beginPath();sx.moveTo(px,groundY+3);sx.lineTo(px,groundY+H*0.02);sx.stroke();}
+  let cx;
+  if(ground){const span=W+Wd, base=-Wd*0.5; cx=base+((((startX+dist)-base)%span)+span)%span;}
+  else cx=W*0.5;
+  if(running&&distV>4){sx.strokeStyle='rgba(27,35,72,'+Math.min(0.4,distV/W*0.7)+')';sx.lineWidth=2;
+    for(let i=0;i<3;i++){const y=groundY-Wd*(0.25+i*0.22);const ln=W*0.04+distV/W*W*0.10;
+      const bx=cx-Wd*0.55-i*8;sx.beginPath();sx.moveTo(bx,y);sx.lineTo(bx-ln,y);sx.stroke();}}
+  const Wg=wedge(cx,groundY,Wd);
+  // (the wedge's acceleration is shown by the motion itself)
+  // coin on the incline (no tendency arrow; the FBD shows the net force)
+  const px=Wg.B.x+u*(Wg.T.x-Wg.B.x), py=Wg.B.y+u*(Wg.T.y-Wg.B.y), r=W*0.026;
+  sx.beginPath();sx.arc(px,py,r,0,7);sx.fillStyle='#ffcf33';sx.fill();sx.lineWidth=2;sx.strokeStyle='#b98900';sx.stroke();
+
+  // divider + FBD
+  tag('FREE BODY OF THE COIN  \u00b7  '+(ground?'GROUND FRAME':'WINDSHIELD FRAME'),W*0.5,H*0.42,'#1b2348','center',11);
+  fbd(W*0.5,H*0.70,ground);
+  tag('m = 1 kg',W*0.5,H*0.945,'#8a8f9c','center',10.5);
+}
+
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(running){
+    const sdt=dt*TS, Wd=W*0.34, PXM=1.25*Wd/Lm;
+    elapsed+=dt;
+    distV+=A*PXM*sdt; dist+=distV*sdt;
+    vu+=aRel*sdt; u+=vu*sdt;
+    let done=false;
+    if(aRel>0.05){ if(u>=Lm){u=Lm;done=true;} }          // coin reaches the top
+    else if(aRel<-0.05){ if(u<=0){u=0;done=true;} }       // coin reaches the bottom
+    else { if(elapsed>=3.0) done=true; }                  // frozen: run a few seconds
+    if(elapsed>=7) done=true;                             // safety cap
+    if(u<0)u=0; if(u>Lm)u=Lm;
+    if(done){running=false;finished=true;updatePlay();}
+  }
+  draw();requestAnimationFrame(loop);}
+
+function updatePlay(){const r=running||finished; play.textContent=r?'Reset':'Play'; play.classList.toggle('pri',!r);}
+function resetState(){running=false;finished=false;dist=0;distV=0;u=0.5;vu=0;elapsed=0;updatePlay();draw();}
+
+play.addEventListener('click',()=>{
+  if(running||finished) resetState();                    // button is showing Reset
+  else { running=true; updatePlay(); }                   // button is showing Play
+});
+fbtns.addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b)return;frame=b.dataset.f;
+  [...fbtns.children].forEach(c=>c.classList.toggle('on',c===b));draw();});  // switch frame anytime, no reset
+window.addEventListener('resize',fit);
+fit();updatePlay();requestAnimationFrame(loop);
+</script></body></html>
