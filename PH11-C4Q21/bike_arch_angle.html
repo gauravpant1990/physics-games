@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Only Part of Gravity Turns You</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:40px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Only Part of Gravity Turns You</div>
+    <div class="sub">Away from the top, gravity still points straight down, but the centre of the curve is now off to the side. Only the slice of gravity aimed at the centre, mg cos&theta;, does the turning. The normal push points outward along the radius.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>angle &theta; from top</label><input type="range" id="t" min="-45" max="45" step="1" value="30"><span class="val" id="tv">30&deg;</span></div></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; centre-directed pull = mg cos&theta;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const tE=document.getElementById('t'),tv=document.getElementById('tv');
+let W=360,H=480;const ASPECT=1.3333,M=100,G=10;let TH=37;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd,dash){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';if(dash)sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.setLineDash([]);sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=TH*Math.PI/180,co=Math.cos(th),si=Math.sin(th);
+  const O=[W*0.5,H*0.62],Rpx=H*0.34;
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.arc(O[0],O[1],Rpx,-Math.PI/2-1.15,-Math.PI/2+1.15);sx.stroke();
+  sx.fillStyle='#8a8f80';sx.beginPath();sx.arc(O[0],O[1],W*0.008,0,7);sx.fill();tag('centre',O[0],O[1]+H*0.022,'#8a8f80','center',9,700);
+  const rad=[si,-co],P=[O[0]+rad[0]*Rpx,O[1]+rad[1]*Rpx];
+  sx.strokeStyle='#cdbfa3';sx.lineWidth=1.4;sx.setLineDash([4,4]);sx.beginPath();sx.moveTo(O[0],O[1]);sx.lineTo(P[0],P[1]);sx.stroke();sx.setLineDash([]);
+  sx.strokeStyle='#8a8f80';sx.lineWidth=1.4;sx.beginPath();sx.arc(O[0],O[1],Rpx*0.3,-Math.PI/2,-Math.PI/2+th,th<0);sx.stroke();tag('\u03b8',O[0]+Rpx*0.14*Math.sin(th/2),O[1]-Rpx*0.30,'#8a8f80','center',10,800);
+  const ang=Math.atan2(rad[1],rad[0])+Math.PI/2;
+  sx.save();sx.translate(P[0],P[1]);sx.rotate(ang);const rw=W*0.023;sx.strokeStyle='#1b2348';sx.lineWidth=2.1;sx.beginPath();sx.arc(-rw*1.5,-rw,rw,0,7);sx.stroke();sx.beginPath();sx.arc(rw*1.5,-rw,rw,0,7);sx.stroke();sx.strokeStyle='#2e6fdb';sx.lineWidth=2.1;sx.beginPath();sx.moveTo(-rw*1.5,-rw);sx.lineTo(0,-rw*2.3);sx.lineTo(rw*1.5,-rw);sx.stroke();sx.fillStyle='#e88b00';sx.beginPath();sx.arc(0,-rw*2.9,rw*0.8,0,7);sx.fill();sx.restore();
+  const cm=[P[0]+rad[0]*W*0.03,P[1]+rad[1]*W*0.03],Lmg=H*0.135,sc=Lmg/(M*G);
+  // full weight
+  arrow(cm[0],cm[1],0,Lmg,'#d9483b',3.4,false);tag('mg = '+(M*G)+' N',cm[0]+(rad[0]>=0?W*0.03:-W*0.03),cm[1]+Lmg,'#d9483b',rad[0]>=0?'left':'right',10,800);
+  // radial slice toward centre
+  arrow(cm[0],cm[1],-rad[0]*(M*G*co)*sc,-rad[1]*(M*G*co)*sc,'#2fa84f',4,true);
+  tag('mg cos\u03b8 = '+(M*G*co).toFixed(0)+' N',cm[0]-rad[0]*(M*G*co)*sc-rad[0]*W*0.04,cm[1]-rad[1]*(M*G*co)*sc-rad[1]*W*0.03,'#1d7a37','center',10,800);
+  // normal outward
+  arrow(cm[0],cm[1],rad[0]*Lmg*0.62,rad[1]*Lmg*0.62,'#2e6fdb',3.4,false);tag('N outward',cm[0]+rad[0]*Lmg*0.8,cm[1]+rad[1]*Lmg*0.8,'#2e6fdb','center',9.5,800);
+  tag('only mg cos\u03b8 aims at the centre',W*0.5,H*0.085,'#1b2348','center',12.5,800);
+  // mini bar: mg cos th shrinking with angle
+  const x0=W*0.14,gw=W*0.72,y=H*0.78,X=q=>gw*Math.min(q,M*G)/(M*G);
+  tag('centre-directed pull',x0,y-H*0.02,'#1d7a37','left',9.5,800);sx.fillStyle='#eee9dd';sx.fillRect(x0,y,gw,H*0.026);sx.fillStyle='#2fa84f';sx.fillRect(x0,y,X(M*G*co),H*0.026);tag((M*G*co).toFixed(0)+' N',x0+gw,y-H*0.02,'#1d7a37','right',9.5,800);
+  tag('\u03b8 = '+TH+'\u00b0      at \u03b8 = 0 all of mg turns you',W*0.5,H*0.86,'#8a8f80','center',9.5,700);
+}
+tE.addEventListener('input',()=>{TH=+tE.value;tv.textContent=(TH>0?'+':'')+TH+'\u00b0';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

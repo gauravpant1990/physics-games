@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Why You Feel Lighter at the Top</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:52px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Why You Feel Lighter at the Top</div>
+    <div class="sub">Over the top of an arch, gravity itself does part of the job of curving your path downward, so the road has less left to push. Your apparent weight N drops below mg, and keeps dropping as you go faster.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>speed v</label><input type="range" id="v" min="0" max="20" step="1" value="12"><span class="val" id="vv">12 m/s</span></div></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; apparent weight N = mg &minus; mv&sup2;/r</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,M=100,R=40;let V=12;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function bike(px,py){const rw=W*0.026;sx.strokeStyle='#1b2348';sx.lineWidth=2.2;sx.beginPath();sx.arc(px-rw*1.5,py-rw,rw,0,7);sx.stroke();sx.beginPath();sx.arc(px+rw*1.5,py-rw,rw,0,7);sx.stroke();sx.strokeStyle='#2e6fdb';sx.lineWidth=2.2;sx.beginPath();sx.moveTo(px-rw*1.5,py-rw);sx.lineTo(px,py-rw*2.4);sx.lineTo(px+rw*1.5,py-rw);sx.moveTo(px,py-rw*2.4);sx.lineTo(px+rw*0.5,py-rw*3.4);sx.stroke();sx.fillStyle='#e88b00';sx.beginPath();sx.arc(px-rw*0.1,py-rw*3.9,rw*0.8,0,7);sx.fill();}
+function gauge(y,N,mg,maxN){const x0=W*0.14,gw=W*0.72;sx.fillStyle='#eee9dd';sx.fillRect(x0,y,gw,H*0.03);const nx=x0+gw*Math.min(N,maxN)/maxN;sx.fillStyle=N<=mg?'#bcd3f0':'#e8b4ad';sx.fillRect(x0,y,nx-x0,H*0.03);const mx=x0+gw*mg/maxN;sx.strokeStyle='#8a8f80';sx.setLineDash([3,3]);sx.lineWidth=1.4;sx.beginPath();sx.moveTo(mx,y-H*0.012);sx.lineTo(mx,y+H*0.042);sx.stroke();sx.setLineDash([]);tag('true weight',mx,y-H*0.024,'#8a8f80','center',9,700);sx.strokeStyle='#2e6fdb';sx.lineWidth=3;sx.beginPath();sx.moveTo(nx,y-H*0.014);sx.lineTo(nx,y+H*0.044);sx.stroke();tag('scale reads N',x0,y+H*0.062,'#1b2348','left',9.5,800);tag(N.toFixed(0)+' N',x0+gw,y+H*0.062,N<20?'#c0392b':'#0f3f70','right',10,800);}
+function draw(){sx.clearRect(0,0,W,H);
+  const mv2r=M*V*V/R, mg=M*G, N=Math.max(0,mg-mv2r), factor=N/mg;
+  const cx=W*0.44,topY=H*0.38,Rpx=H*0.20,O=[cx,topY+Rpx];
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.arc(O[0],O[1],Rpx,-Math.PI/2-0.8,-Math.PI/2+0.8);sx.stroke();
+  // partial radius toward centre (clear of the arrows)
+  sx.strokeStyle='#cdbfa3';sx.lineWidth=1.4;sx.setLineDash([4,4]);sx.beginPath();sx.moveTo(O[0],O[1]);sx.lineTo(O[0]+(cx-O[0])*0.55,O[1]+(topY-O[1])*0.55);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle='#8a8f80';sx.beginPath();sx.arc(O[0],O[1],W*0.008,0,7);sx.fill();tag('centre of curve',O[0]+W*0.02,O[1],'#8a8f80','left',9,700);
+  bike(cx,topY);
+  const cm=[cx,topY-W*0.045],Lmg=H*0.09,sc=Lmg/mg;
+  arrow(cm[0],cm[1],0,Lmg,'#d9483b',3);tag('mg',cm[0]+W*0.03,cm[1]+Lmg,'#d9483b','left',10,800);
+  if(N>1){arrow(cm[0],cm[1],0,-N*sc,'#2e6fdb',4.2);tag('N',cm[0]+W*0.03,cm[1]-N*sc,'#2e6fdb','left',10.5,800);}
+  else tag('N = 0',cm[0]+W*0.03,cm[1]-H*0.018,'#c0392b','left',10.5,800);
+  tag(N<1?'weightless, the road pushes nothing':'you feel only '+factor.toFixed(1)+'\u00d7 your weight',W*0.5,H*0.085,N<1?'#c0392b':'#0f3f70','center',13,800);
+  gauge(H*0.68,N,mg,1100);
+  tag('N = mg \u2212 mv\u00b2/r = '+mg+' \u2212 '+mv2r.toFixed(0)+' = '+N.toFixed(0)+' N',W*0.5,H*0.82,'#1d7a37','center',11,800);
+  tag('go fast enough and N reaches zero, that is the edge of flying off',W*0.5,H*0.875,'#8a8f80','center',9.5,700);
+}
+
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V+' m/s';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>
