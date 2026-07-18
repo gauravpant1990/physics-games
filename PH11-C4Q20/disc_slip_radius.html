@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Who Slips First?</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Who Slips First?</div>
+    <div class="sub">Two riders speed up together. The heavier one (green) sits near the axis; the lighter one (orange) sits at the edge. Watch who slides off first, then ask whether mass was really the reason.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="go">Spin up</button></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; slip at &omega; = &radic;(&mu;g/r), no m in it</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333,G=10,MU=0.8;
+// inner rider: heavy, small r ; outer rider: light, large r
+const inner={m:80,r:1.0,col:'#2fa84f',dk:'#1d7a37',name:'heavy, near axis'};
+const outer={m:40,r:2.5,col:'#e88b00',dk:'#b06a00',name:'light, at edge'};
+inner.wmax=Math.sqrt(MU*G/inner.r); outer.wmax=Math.sqrt(MU*G/outer.r);
+let mode='ready',om=0,phi=0,last=0,slipI=0,slipO=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(9,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function reset(){mode='ready';om=0;phi=0;slipI=0;slipO=0;go.textContent='Spin up';go.className='btn';draw();}
+function rider(cx,cy,Rpx,rp,slip,p){
+  const rr=Rpx*(rp/2.7)+Math.min(slip,Rpx*0.28); const px=cx+rr*Math.cos(phi),py=cy+rr*Math.sin(phi);
+  sx.strokeStyle='#cdbfa3';sx.setLineDash([3,3]);sx.lineWidth=1.2;sx.beginPath();sx.moveTo(cx,cy);sx.lineTo(px,py);sx.stroke();sx.setLineDash([]);
+  const dx=cx-px,dy=cy-py,LL=Math.hypot(dx,dy)||1,ux=dx/LL,uy=dy/LL,fl=Math.min(W*0.09,LL*0.5);
+  arrow(px,py,ux*fl,uy*fl,'#2fa84f',3.4);
+  sx.fillStyle=p.col;sx.beginPath();sx.arc(px,py,W*0.026,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle=p.dk;sx.stroke();
+  return {px,py};
+}
+function draw(){sx.clearRect(0,0,W,H);
+  const cx=W*0.5,cy=H*0.33,Rpx=Math.min(W*0.40,H*0.22);
+  sx.fillStyle='#eef1f4';sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.013,0,7);sx.fill();
+  const pI=rider(cx,cy,Rpx,inner.r,slipI,inner);
+  const pO=rider(cx,cy,Rpx,outer.r,slipO,outer);
+  tag(inner.name,pI.px,pI.py-W*0.05,inner.dk,'center',8.5,800);
+  tag(outer.name,pO.px,pO.py+W*0.05,outer.dk,'center',8.5,800);
+  let msg,mc;
+  if(slipO>0&&slipI===0){msg='edge rider slid off first';mc='#c0392b';}
+  else if(slipI>0){msg='now the inner one goes too';mc='#c0392b';}
+  else msg='both holding on';mc=slipO>0?'#c0392b':'#1b2348';
+  tag(msg,W*0.5,H*0.075,mc,'center',12.5,800);
+  // gauges
+  const x0=W*0.16,gw=W*0.68,y=H*0.68,Xw=q=>gw*Math.min(q,3)/3;
+  tag('spin speed \u03c9 = '+om.toFixed(2)+' rad/s',W*0.5,y-H*0.03,'#185FA5','center',11,800);
+  sx.fillStyle='#dfe6ef';sx.fillRect(x0,y,gw,H*0.022);sx.fillStyle='#185FA5';sx.fillRect(x0,y,Xw(om),H*0.022);
+  const mo=x0+Xw(outer.wmax),mi=x0+Xw(inner.wmax);
+  sx.strokeStyle=outer.dk;sx.lineWidth=2;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(mo,y-H*0.012);sx.lineTo(mo,y+H*0.034);sx.stroke();
+  sx.strokeStyle=inner.dk;sx.beginPath();sx.moveTo(mi,y-H*0.012);sx.lineTo(mi,y+H*0.034);sx.stroke();sx.setLineDash([]);
+  tag(outer.wmax.toFixed(2),mo,y+H*0.05,outer.dk,'center',9,800);tag(inner.wmax.toFixed(2),mi,y+H*0.05,inner.dk,'center',9,800);
+  tag('green arrows = friction, each rider\u2019s centripetal force',W*0.5,H*0.80,'#1d7a37','center',10,700);
+  tag('edge rider (large r) slips first; mass is not in \u03c9 = \u221a(\u03bcg/r)',W*0.5,H*0.855,'#8a8f80','center',9.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;draw();return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  om+=0.45*dt; phi+=om*0.5*dt;
+  if(om>outer.wmax)slipO+=W*0.18*dt;
+  if(om>inner.wmax)slipI+=W*0.18*dt;
+  const Rpx=Math.min(W*0.40,H*0.22);
+  const outerRR=Rpx*(outer.r/2.7)+Math.min(slipO,Rpx*0.28);
+  if(outerRR>=Rpx||om>3){mode='done';go.textContent='Reset';go.className='btn';draw();return;}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;if(mode==='done'){reset();}else{mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

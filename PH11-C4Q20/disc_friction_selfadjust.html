@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Friction Gives Only What Is Needed</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Friction Gives Only What Is Needed</div>
+    <div class="sub">Static friction is not stuck at its maximum. As the disc speeds up it quietly supplies exactly m&omega;&sup2;r, growing to match the need, until it hits its ceiling &mu;&#x209B;mg. Past that it cannot help, and you slip off.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="go">Spin up</button></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; slips at &omega; = &radic;(&mu;&#x209B;g/r) = 2 rad/s</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const go=document.getElementById('go');
+let W=360,H=480;const ASPECT=1.3333,G=10,MU=0.8,M=50,R=2,FMAX=MU*M*G,WMAX=Math.sqrt(MU*G/R);
+let mode='ready',om=0,phi=0,slid=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}reset();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function reset(){mode='ready';om=0;phi=0;slid=0;go.textContent='Spin up';go.className='btn';draw();}
+function draw(){sx.clearRect(0,0,W,H);
+  const need=M*om*om*R, fric=Math.min(need,FMAX), slipping=need>FMAX+0.5;
+  const cx=W*0.5,cy=H*0.30,Rpx=Math.min(W*0.34,H*0.20),rr=Rpx*0.74+Math.min(slid,Rpx*0.45);
+  sx.fillStyle='#eef1f4';sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.012,0,7);sx.fill();
+  const px=cx+rr*Math.cos(phi),py=cy+rr*Math.sin(phi);
+  sx.strokeStyle='#cdbfa3';sx.setLineDash([3,3]);sx.lineWidth=1.2;sx.beginPath();sx.moveTo(cx,cy);sx.lineTo(px,py);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle=slipping?'#e2a13a':'#e88b00';sx.beginPath();sx.arc(px,py,W*0.026,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#b06a00';sx.stroke();
+  const dl=Math.hypot(cx-px,cy-py)||1,ux=(cx-px)/dl,uy=(cy-py)/dl,flen=W*0.04+fric*0.075;
+  arrow(px,py,ux*flen,uy*flen,'#2fa84f',4.6);
+  tag(slipping?'friction maxed \u2192 slipping off':'friction holding (adjusting to need)',W*0.5,H*0.075,slipping?'#c0392b':'#1d7a37','center',12,800);
+  // bar BELOW the disc: need (light red overhang) with friction (green) capped at ceiling
+  const bx=W*0.22,bw=W*0.56,y1=H*0.64,mx=650,X=q=>bw*Math.min(q,mx)/mx;
+  sx.fillStyle='#dfe6ef';sx.fillRect(bx,y1,bw,H*0.028);
+  if(need>FMAX){sx.fillStyle='#f0c9c4';sx.fillRect(bx+X(FMAX),y1,X(need)-X(FMAX),H*0.028);}
+  sx.fillStyle=slipping?'#2fa84f':'#2fa84f';sx.fillRect(bx,y1,X(fric),H*0.028);
+  tag('friction',bx-W*0.02,y1+H*0.014,'#1d7a37','right',9.5,800);
+  tag(fric.toFixed(0)+' N',bx+X(fric)+W*0.02,y1+H*0.014,'#1d7a37','left',9.5,800);
+  const cxl=bx+X(FMAX);sx.strokeStyle='#c0392b';sx.lineWidth=2;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(cxl,y1-H*0.016);sx.lineTo(cxl,y1+H*0.05);sx.stroke();sx.setLineDash([]);tag('ceiling \u03bc\u209bmg = '+FMAX+' N',cxl,y1-H*0.032,'#c0392b','center',9.5,800);
+  if(need>FMAX)tag('need m\u03c9\u00b2r = '+need.toFixed(0)+' N',bx+X(need)+W*0.02,y1+H*0.05,'#c0392b','left',9,800);
+  // omega gauge
+  const y2=H*0.77,Xw=q=>bw*Math.min(q,2.6)/2.6;
+  tag('\u03c9 = '+om.toFixed(2)+' rad/s',W*0.5,y2-H*0.026,'#185FA5','center',10.5,800);
+  sx.fillStyle='#dfe6ef';sx.fillRect(bx,y2,bw,H*0.02);sx.fillStyle='#185FA5';sx.fillRect(bx,y2,Xw(om),H*0.02);
+  const wm=bx+Xw(WMAX);sx.strokeStyle='#c0392b';sx.lineWidth=2;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(wm,y2-H*0.012);sx.lineTo(wm,y2+H*0.03);sx.stroke();sx.setLineDash([]);tag('slip \u03c9 = 2.0',wm,y2-H*0.024,'#c0392b','center',9,800);
+  tag('below \u03c9 = 2 friction just matches m\u03c9\u00b2r; at the ceiling it runs out',W*0.5,H*0.87,'#8a8f80','center',9.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  om+=0.4*dt; phi+=om*0.6*dt;
+  const Rpx=Math.min(W*0.34,H*0.20);
+  if(om>WMAX)slid+=W*0.14*dt;
+  if(slid>Rpx*0.45||om>2.5){mode='done';go.textContent='Reset';go.className='btn';draw();return;}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;if(mode==='done'){reset();}else{om=0;phi=0;slid=0;mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

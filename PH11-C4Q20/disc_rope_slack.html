@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>The Rope Waits Its Turn</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:64px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">The Rope Waits Its Turn</div>
+    <div class="sub">You hold a rope tied to the axis. While friction alone can supply the centripetal force, the rope stays slack and its tension is zero. It only starts pulling once friction runs out.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>spin speed &omega;</label><input type="range" id="w" min="0" max="2.6" step="0.05" value="1.2"><span class="val" id="wv">1.20 rad/s</span></div></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; T = 0 while m&omega;&sup2;r &lt; &mu;&#x209B;mg</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const wE=document.getElementById('w'),wv=document.getElementById('wv');
+let W=360,H=480;const ASPECT=1.3333,G=10,MU=0.8,M=50,R=2,FMAX=MU*M*G,WMAX=Math.sqrt(MU*G/R);let om=1.2,phi=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function rope(ax,ay,bx,by,slack){sx.strokeStyle='#bb8047';sx.lineWidth=3;sx.beginPath();if(slack<=0.5){sx.moveTo(ax,ay);sx.lineTo(bx,by);}else{const n=16,nx=-(by-ay),ny=(bx-ax),nl=Math.hypot(nx,ny);for(let i=0;i<=n;i++){const t=i/n,x=ax+(bx-ax)*t,y=ay+(by-ay)*t,wig=Math.sin(t*Math.PI*3)*slack*(nx/nl),wjg=Math.sin(t*Math.PI*3)*slack*(ny/nl);if(i===0)sx.moveTo(x+wig,y+wjg);else sx.lineTo(x+wig,y+wjg);}}sx.stroke();}
+function draw(){sx.clearRect(0,0,W,H);
+  const need=M*om*om*R, fricUsed=Math.min(need,FMAX), T=Math.max(0,need-FMAX), taut=T>0.5;
+  const cx=W*0.5,cy=H*0.40,Rpx=Math.min(W*0.40,H*0.28),rr=Rpx*0.74;
+  sx.fillStyle='#eef1f4';sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.fill();sx.lineWidth=2.4;sx.strokeStyle='#1b2348';sx.stroke();
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.014,0,7);sx.fill();
+  const px=cx+rr*Math.cos(phi),py=cy+rr*Math.sin(phi);
+  rope(cx,cy,px,py,taut?0:W*0.03);
+  sx.fillStyle='#e88b00';sx.beginPath();sx.arc(px,py,W*0.026,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#b06a00';sx.stroke();
+  const ux=(cx-px)/rr,uy=(cy-py)/rr;
+  arrow(px,py,ux*(W*0.04+fricUsed*0.10),uy*(W*0.04+fricUsed*0.10),'#2fa84f',4.6);
+  if(taut){arrow(px+ux*W*0.02,py+uy*W*0.02,ux*(W*0.04+T*0.10),uy*(W*0.04+T*0.10),'#bb8047',3.4);}
+  tag(taut?'friction maxed, rope now pulling':'rope slack, friction alone holds you',W*0.5,H*0.075,taut?'#c0392b':'#1d7a37','center',12,800);
+  const bx=W*0.30,bw=W*0.48,y=H*0.66,mx=560,X=q=>bw*Math.min(q,mx)/mx;
+  tag('friction',bx-W*0.02,y+H*0.012,'#1d7a37','right',9.5,800);sx.fillStyle='#2fa84f';sx.fillRect(bx,y,X(fricUsed),H*0.024);tag(fricUsed.toFixed(0)+' N',bx+X(fricUsed)+W*0.02,y+H*0.012,'#1d7a37','left',9.5,800);
+  tag('tension',bx-W*0.02,y+H*0.05,'#bb8047','right',9.5,800);sx.fillStyle='#eee9dd';sx.fillRect(bx,y+H*0.038,bw,H*0.024);sx.fillStyle='#bb8047';sx.fillRect(bx,y+H*0.038,X(T),H*0.024);tag(T.toFixed(0)+' N',bx+X(T)+W*0.02,y+H*0.05,'#8a5a20','left',9.5,800);
+  const cxl=bx+X(FMAX);sx.strokeStyle='#c0392b';sx.lineWidth=1.6;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(cxl,y-H*0.01);sx.lineTo(cxl,y+H*0.07);sx.stroke();sx.setLineDash([]);tag('\u03bc\u209bmg='+FMAX,cxl,y-H*0.026,'#c0392b','center',9,800);
+  tag(taut?('T = m\u03c9\u00b2r \u2212 \u03bc\u209bmg = '+T.toFixed(0)+' N'):'T = 0   (friction '+fricUsed.toFixed(0)+' N < ceiling '+FMAX+' N)',W*0.5,H*0.80,'#1b2348','center',10.5,800);
+  tag('below \u03c9 = '+WMAX.toFixed(1)+' rad/s the rope carries nothing at all',W*0.5,H*0.86,'#8a8f80','center',9.5,700);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;phi+=om*0.6*dt;draw();requestAnimationFrame(loop);}
+wE.addEventListener('input',()=>{om=+wE.value;wv.textContent=om.toFixed(2)+' rad/s';});
+window.addEventListener('resize',()=>{fit();});fit();requestAnimationFrame(loop);
+</script></body></html>
