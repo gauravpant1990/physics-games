@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Six Times Your Weight at the Bottom</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:60px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Six Times Your Weight at the Bottom</div>
+    <div class="sub">Ride the smallest loop that just works: barely &radic;(gR) at the top. Sliding the bike around, watch the cage force change. Gravity speeds you up on the way down, and at the very bottom the cage pushes with a full 6mg.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>position &theta; from top</label><input type="range" id="t" min="0" max="180" step="2" value="180"><span class="val" id="tv">180&deg;</span></div></div>
+  <div class="foot">Laws of Motion &middot; Vertical circle &middot; N = mg(3 &minus; 2cos&theta;) + mg cos&theta;-side, 6mg at bottom</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const tE=document.getElementById('t'),tv=document.getElementById('tv');
+let W=360,H=480;const ASPECT=1.3333,G=10,R=2.5,M=200;let TH=180;
+// min loop: v_top^2=gR ; at angle th from top v^2=gR(3-2cos th); N = m v^2/R + m g cos th (radial: N - mg cos th_grav = m v^2/R where gravity inward comp = mg cos th on upper... use N = m v^2/R + mg*cos(th) with th from top? at top th=0: N=m gR/R + mg = mg+mg? no)
+// Correct radial (inward positive): N - mg*cos(th_from_top adjusted). At top gravity is inward (+mg). N + mg = m v^2/R -> N=m v^2/R - mg. At bottom gravity outward (-mg): N - mg = m v^2/R -> N=m v^2/R + mg. General inward gravity component = mg*cos(th) with th from top (cos>0 upper adds, lower subtracts): N = m v^2/R - mg*cos(th).
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=TH*Math.PI/180, v2=G*R*(3-2*Math.cos(th)), N=M*v2/R-M*G*Math.cos(th), Nmg=N/(M*G);
+  const cx=W*0.5,cy=H*0.42,Rpx=Math.min(W*0.32,H*0.24);
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.01,0,7);sx.fill();
+  const bx=cx+Rpx*Math.sin(th),by=cy-Rpx*Math.cos(th);
+  const ux=(cx-bx)/Rpx,uy=(cy-by)/Rpx;
+  sx.fillStyle='#e88b00';sx.beginPath();sx.arc(bx,by,W*0.028,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#b06a00';sx.stroke();
+  const sc=H*0.08/(M*G);
+  arrow(bx,by,0,M*G*sc,'#d9483b',3.4);tag('mg',bx+(ux>=0?-W*0.03:W*0.03),by+M*G*sc*0.8,'#d9483b',ux>=0?'right':'left',9.5,800);
+  const nS=sc/2.5;arrow(bx,by,ux*N*nS,uy*N*nS,'#2e6fdb',3.6);tag('N = '+Nmg.toFixed(1)+' mg',bx+ux*N*nS+ux*W*0.03,by+uy*N*nS+uy*W*0.02,'#2e6fdb','center',9.5,800);
+  tag(TH>=178?'at the bottom: N = 6 mg':(TH<=2?'at the top: N = 0':'along the loop'),W*0.5,H*0.085,TH>=178?'#c0392b':'#1b2348','center',12.5,800);
+  const gx=W*0.24,gw=W*0.52,y1=H*0.74,mx=6.2,X=q=>gw*Math.max(0,Math.min(q,mx))/mx;
+  tag('cage force N',gx-W*0.02,y1+H*0.012,'#2e6fdb','right',9.5,800);sx.fillStyle='#dfe6ef';sx.fillRect(gx,y1,gw,H*0.026);sx.fillStyle='#2e6fdb';sx.fillRect(gx,y1,X(Nmg),H*0.026);tag(Nmg.toFixed(1)+' mg',gx+gw+W*0.03,y1+H*0.013,'#0f3f70','left',9.5,800);
+  for(let k=1;k<=6;k++){const mkx=gx+gw*k/6.2;sx.strokeStyle='#c9c2b4';sx.lineWidth=1;sx.beginPath();sx.moveTo(mkx,y1);sx.lineTo(mkx,y1+H*0.026);sx.stroke();}
+  tag('speed grows from top (v=5) to bottom (v=\u221a125 \u2248 11.2 m/s)',W*0.5,H*0.85,'#8a8f80','center',9.5,700);
+  tag('so the cage must supply mg + mv\u00b2/R = 6mg at the lowest point',W*0.5,H*0.90,'#8a8f80','center',9.5,700);
+}
+tE.addEventListener('input',()=>{TH=+tE.value;tv.textContent=TH+'\u00b0';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

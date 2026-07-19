@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>The Tether Does Two Jobs</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:60px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">The Tether Does Two Jobs</div>
+    <div class="sub">The rope holding the bike leans out. Its upward part carries the weight, and its sideways part turns the circle. Speed up and it must lean out more, so the angle grows and the tension climbs above mg.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>speed v</label><input type="range" id="v" min="1" max="9" step="0.2" value="5"><span class="val" id="vv">5.0 m/s</span></div></div>
+  <div class="foot">Laws of Motion &middot; Conical pendulum &middot; tan&theta; = v&sup2;/(rg), T = mg/cos&theta;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,M=200,r=2.5;let V=5;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=Math.atan(V*V/(r*G)), T=M*G/Math.cos(th), Tmg=T/(M*G);
+  const px=W*0.5,py=H*0.14,Ln=Math.min(W*0.34,H*0.26);
+  const bx=px+Ln*Math.sin(th),by=py+Ln*Math.cos(th);
+  // pivot
+  sx.fillStyle='#1b2348';sx.fillRect(px-W*0.05,py-H*0.012,W*0.10,H*0.012);
+  // vertical reference
+  sx.strokeStyle='#cdbfa3';sx.setLineDash([4,4]);sx.lineWidth=1.4;sx.beginPath();sx.moveTo(px,py);sx.lineTo(px,py+Ln);sx.stroke();sx.setLineDash([]);
+  // angle arc
+  sx.strokeStyle='#8a8f9c';sx.lineWidth=1.4;sx.beginPath();sx.arc(px,py,Ln*0.34,Math.PI/2-th,Math.PI/2);sx.stroke();tag('\u03b8',px+Ln*0.20*Math.sin(th/2),py+Ln*0.30*Math.cos(th/2),'#8a8f9c','center',10,800);
+  // circle (perspective ellipse) at bike height
+  sx.strokeStyle='#d8dee8';sx.lineWidth=1.4;sx.beginPath();sx.ellipse(px,by,Ln*Math.sin(th),Ln*Math.sin(th)*0.32,0,0,7);sx.stroke();
+  // tether
+  sx.strokeStyle='#bb8047';sx.lineWidth=3;sx.beginPath();sx.moveTo(px,py);sx.lineTo(bx,by);sx.stroke();
+  // bike
+  sx.fillStyle='#e88b00';sx.beginPath();sx.arc(bx,by,W*0.028,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#b06a00';sx.stroke();
+  // forces
+  const sc=H*0.11/(M*G);
+  arrow(bx,by,0,M*G*sc,'#d9483b',3.2);tag('mg',bx+W*0.03,by+M*G*sc,'#d9483b','left',10,800);
+  // tension along tether toward pivot
+  const tux=(px-bx),tuy=(py-by),tl=Math.hypot(tux,tuy);
+  arrow(bx,by,tux/tl*T*sc,tuy/tl*T*sc,'#bb8047',4);tag('T',bx+tux/tl*T*sc-W*0.03,by+tuy/tl*T*sc,'#8a5a20','right',10,800);
+  // components of T: vertical up (=mg) and horizontal in (=mv2/r)
+  arrow(bx,by,0,-M*G*sc,'#2fa84f',2.6);tag('holds mg',bx-W*0.03,by-M*G*sc*0.6,'#1d7a37','right',8.5,700);
+  arrow(bx,by,(px-bx>=0?1:-1)*Math.abs(M*V*V/r*sc),0,'#2e6fdb',2.6);tag('turns circle',bx+(px-bx>=0?1:-1)*Math.abs(M*V*V/r*sc)*0.6,by+H*0.028,'#2e6fdb','center',8.5,700);
+  tag('lean out more to go faster',W*0.5,H*0.075,'#1b2348','center',12.5,800);
+  tag('\u03b8 = '+(th*180/Math.PI).toFixed(0)+'\u00b0    T = '+Tmg.toFixed(2)+' mg   (always above mg)',W*0.5,H*0.85,'#1d7a37','center',11,800);
+  tag('up part balances mg, side part gives mv\u00b2/r, so tan\u03b8 = v\u00b2/(rg)',W*0.5,H*0.905,'#8a8f80','center',9.5,700);
+}
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V.toFixed(1)+' m/s';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

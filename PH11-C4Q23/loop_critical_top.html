@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>The Slowest You Can Go at the Top</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:60px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">The Slowest You Can Go at the Top</div>
+    <div class="sub">At the very top of the loop, both gravity and the cage push down toward the centre. Gravity alone can bend the path only if you are fast enough. Slow down too much and the cage can no longer help, so contact breaks.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>speed at top</label><input type="range" id="v" min="2" max="9" step="0.1" value="7"><span class="val" id="vv">7.0 m/s</span></div></div>
+  <div class="foot">Laws of Motion &middot; Vertical circle &middot; N = mv&sup2;/R &minus; mg, zero at v = &radic;(gR) = 5 m/s</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,M=200,R=2.5,VC=Math.sqrt(G*R);let V=7;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const N=M*V*V/R-M*G, lost=N<0;
+  const cx=W*0.5,cy=H*0.40,Rpx=Math.min(W*0.34,H*0.24);
+  sx.strokeStyle='#1b2348';sx.lineWidth=3;sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.01,0,7);sx.fill();tag('centre',cx,cy+W*0.045,'#8a8f9c','center',9,700);
+  const bx=cx,by=cy-Rpx-(lost? Math.min(H*0.06,(-N)/M*0.02):0);
+  sx.fillStyle=lost?'#d9483b':'#e88b00';sx.beginPath();sx.arc(bx,by,W*0.03,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle=lost?'#a02b20':'#b06a00';sx.stroke();
+  const sc=H*0.10/(M*G);
+  arrow(bx,by,0,M*G*sc,'#d9483b',3.4);tag('mg',bx+W*0.03,by+M*G*sc,'#d9483b','left',10,800);
+  if(!lost){arrow(bx-W*0.05,by,0,N*sc,'#2e6fdb',3.8);tag('N',bx-W*0.05-W*0.03,by+N*sc*0.7,'#2e6fdb','right',10,800);}
+  tag(lost?'too slow, cage cannot pull, contact lost':'cage still pressing (N > 0)',W*0.5,H*0.085,lost?'#c0392b':'#1d7a37','center',12,800);
+  const gx=W*0.24,gw=W*0.52,y1=H*0.66,mx=5000,X=q=>gw*Math.max(0,Math.min(q,mx))/mx;
+  tag('need m v\u00b2/R',gx-W*0.02,y1+H*0.012,'#5b6172','right',9.5,800);sx.fillStyle='#c9c2b4';sx.fillRect(gx,y1,X(M*V*V/R),H*0.024);
+  tag('gravity mg',gx-W*0.02,y1+H*0.052,'#d9483b','right',9.5,800);sx.fillStyle='#f0c9c4';sx.fillRect(gx,y1+H*0.04,X(M*G),H*0.024);
+  tag('the gap is N = '+Math.max(0,N).toFixed(0)+' N   (mv\u00b2/R \u2212 mg)',W*0.5,H*0.75,'#1b2348','center',11,800);
+  tag('at v = \u221a(gR) = 5 m/s, mv\u00b2/R just equals mg, so N = 0',W*0.5,H*0.82,'#1d7a37','center',10.5,800);
+  tag('slower than that and gravity alone is too strong, you fall inward',W*0.5,H*0.875,'#8a8f80','center',9.5,700);
+}
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V.toFixed(1)+' m/s';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>
