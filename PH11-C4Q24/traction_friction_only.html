@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Only Friction Turns the Car</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:74px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Only Friction Turns the Car</div>
+    <div class="sub">On a flat track nothing pushes the car sideways except the grip of the tyres. That friction points inward, toward the centre of the corner, and it is the entire centripetal force. Faster corner, bigger demand m v&sup2;/r.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>speed v</label><input type="range" id="v" min="20" max="78" step="1" value="60"><span class="val" id="vv">60 m/s</span></div></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; friction = m v&sup2;/r, aimed at the centre</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,R=320;let V=60,phi=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const ac=V*V/R;
+  const cx=W*0.5,cy=H*0.40,Rpx=Math.min(W*0.38,H*0.28);
+  sx.strokeStyle='#c9c2b4';sx.lineWidth=W*0.06;sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();
+  sx.strokeStyle='#fff';sx.lineWidth=2;sx.setLineDash([8,8]);sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.01,0,7);sx.fill();tag('centre',cx,cy+W*0.04,'#8a8f9c','center',9,700);
+  const px=cx+Rpx*Math.cos(phi),py=cy+Rpx*Math.sin(phi),ux=(cx-px)/Rpx,uy=(cy-py)/Rpx;
+  // car (small rounded rect oriented along velocity)
+  const ang=Math.atan2(uy,ux)+Math.PI/2;sx.save();sx.translate(px,py);sx.rotate(ang);sx.fillStyle='#2e6fdb';sx.fillRect(-W*0.02,-W*0.032,W*0.04,W*0.064);sx.lineWidth=2;sx.strokeStyle='#173a72';sx.strokeRect(-W*0.02,-W*0.032,W*0.04,W*0.064);sx.restore();
+  arrow(px,py,ux*(W*0.06+ac*W*0.006),uy*(W*0.06+ac*W*0.006),'#2fa84f',5);
+  tag('friction (to centre)',px+ux*W*0.14+uy*W*0.04,py+uy*W*0.14-ux*W*0.04,'#1d7a37','center',9.5,800);
+  arrow(px,py,uy*Rpx*0.5,-ux*Rpx*0.5,'#8a8f9c',2.4);tag('v',px+uy*Rpx*0.5+uy*W*0.02,py-ux*Rpx*0.5,'#8a8f9c','center',9,700);
+  tag('the tyres\u2019 grip is the whole centripetal force',W*0.5,H*0.08,'#1b2348','center',12,800);
+  tag('turning demand  a = v\u00b2/r = '+ac.toFixed(1)+' m/s\u00b2',W*0.5,H*0.80,'#1d7a37','center',11.5,800);
+  tag('no banking, no rail, nothing else pulls the car inward',W*0.5,H*0.86,'#8a8f80','center',9.5,700);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;phi+=(V/90)*dt;draw();requestAnimationFrame(loop);}
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V+' m/s';});
+window.addEventListener('resize',()=>{fit();});fit();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Where to Put the Power Down</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}
+  .btn{width:100%;font-family:inherit;font-size:13px;font-weight:800;padding:9px;border-radius:9px;border:2px solid #1d7a37;background:#2fa84f;color:#fff;cursor:pointer}
+  .btn.dull{background:#d7d0c1;border-color:#b8b1a1;color:#6b7180;cursor:default}
+  .seg{display:flex;gap:6px;margin-top:8px}.seg button{flex:1;font-family:inherit;font-size:11.5px;font-weight:800;padding:9px 4px;border-radius:9px;border:2px solid #1b2348;background:#fff;color:#1b2348;cursor:pointer}.seg button.on{background:#1b2348;color:#fff}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Where to Put the Power Down</div>
+    <div class="sub">In the curve the grip is already busy turning, so extra throttle overloads it and you slip. On the straight there is no turning, so all the grip is free for the throttle. Pick where you accelerate and drive the lap.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><button class="btn" id="go">Drive the lap</button>
+    <div class="seg" id="seg"><button data-s="curve" class="on">gas in the curve</button><button data-s="straight">gas on the straight</button></div></div>
+  <div class="foot">Laws of Motion &middot; Traction &middot; accelerate where turning demand is low</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const go=document.getElementById('go'),seg=document.getElementById('seg');
+let W=360,H=480;const ASPECT=1.3333,BUD=20,TURN=18,AT=10;
+let strat='curve',mode='ready',s=0,last=0,slipOff=0,slipped=false;
+let cx,cy,Rt,L,total,segA,segB;
+function geom(){cx=W*0.5;cy=H*0.34;Rt=Math.min(W*0.19,H*0.135);L=W*0.30;segA=Math.PI*Rt;total=2*L+2*segA;}
+function pos(d){ // returns {x,y,curve,ang}
+  if(d<L){return {x:cx-L/2+d,y:cy+Rt,curve:false,ang:0};}
+  d-=L;
+  if(d<segA){const a=d/Rt;return {x:cx+L/2+Rt*Math.sin(a),y:cy+Rt*Math.cos(a),curve:true,ang:a};}
+  d-=segA;
+  if(d<L){return {x:cx+L/2-d,y:cy-Rt,curve:false,ang:Math.PI};}
+  d-=L;const a=d/Rt;return {x:cx-L/2-Rt*Math.sin(a),y:cy-Rt*Math.cos(a),curve:true,ang:a};}
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}geom();reset();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function reset(){mode='ready';s=0;slipOff=0;slipped=false;go.textContent='Drive the lap';go.className='btn';draw();}
+function drawTrack(){
+  // straights (green = grip free) and curves (gold = turning)
+  sx.lineCap='round';
+  sx.strokeStyle='#bfe0b8';sx.lineWidth=W*0.05;
+  sx.beginPath();sx.moveTo(cx-L/2,cy+Rt);sx.lineTo(cx+L/2,cy+Rt);sx.stroke();
+  sx.beginPath();sx.moveTo(cx-L/2,cy-Rt);sx.lineTo(cx+L/2,cy-Rt);sx.stroke();
+  sx.strokeStyle='#f0d9a0';sx.lineWidth=W*0.05;
+  sx.beginPath();sx.arc(cx+L/2,cy,Rt,-Math.PI/2,Math.PI/2);sx.stroke();
+  sx.beginPath();sx.arc(cx-L/2,cy,Rt,Math.PI/2,Math.PI*1.5);sx.stroke();
+  sx.strokeStyle='#fff';sx.lineWidth=2;sx.setLineDash([7,7]);
+  sx.beginPath();sx.moveTo(cx-L/2,cy+Rt);sx.lineTo(cx+L/2,cy+Rt);sx.moveTo(cx-L/2,cy-Rt);sx.lineTo(cx+L/2,cy-Rt);sx.stroke();
+  sx.beginPath();sx.arc(cx+L/2,cy,Rt,-Math.PI/2,Math.PI/2);sx.arc(cx-L/2,cy,Rt,Math.PI/2,Math.PI*1.5);sx.stroke();sx.setLineDash([]);
+  tag('CURVE',cx+L/2+Rt+W*0.005,cy,'#c9a24a','left',9,800);tag('turning',cx+L/2+Rt+W*0.005,cy+H*0.022,'#c9a24a','left',8,700);
+  tag('STRAIGHT \u00b7 no turning',cx,cy+Rt+H*0.03,'#1d7a37','center',9.5,800);
+}
+function budgetCircle(turn,thr){const mx=W*0.82,my=H*0.20,mr=W*0.10,sc=mr/BUD,res=Math.hypot(turn,thr),over=res>BUD+1e-6;
+  sx.fillStyle=over?'#fbeae7':'#eaf3ec';sx.beginPath();sx.arc(mx,my,mr,0,7);sx.fill();sx.strokeStyle=over?'#d9483b':'#2fa84f';sx.lineWidth=2;sx.beginPath();sx.arc(mx,my,mr,0,7);sx.stroke();
+  sx.strokeStyle='#2e6fdb';sx.lineWidth=3;sx.beginPath();sx.moveTo(mx,my);sx.lineTo(mx+turn*sc,my);sx.stroke();
+  sx.strokeStyle='#e0892a';sx.lineWidth=3;sx.beginPath();sx.moveTo(mx+turn*sc,my);sx.lineTo(mx+turn*sc,my-thr*sc);sx.stroke();
+  sx.strokeStyle=over?'#d9483b':'#1b2348';sx.lineWidth=2.6;sx.beginPath();sx.moveTo(mx,my);sx.lineTo(mx+turn*sc,my-thr*sc);sx.stroke();
+  tag('grip use',mx,my-mr-H*0.015,'#5b6172','center',8.5,800);}
+function draw(){sx.clearRect(0,0,W,H);drawTrack();
+  const p=pos(Math.min(s,total-0.001));
+  const inZone = strat==='curve'? p.curve : !p.curve;
+  const turn = p.curve? TURN : 0, thr=(mode==='playing'&&inZone)?AT:0, over=Math.hypot(turn,thr)>BUD+1e-6;
+  // outward normal for slip
+  let nx=0,ny=0;if(p.curve){const c=(p.x> cx? cx+L/2:cx-L/2);nx=(p.x-c);ny=(p.y-cy);const nl=Math.hypot(nx,ny)||1;nx/=nl;ny/=nl;}else{nx=0;ny=(p.y>cy?1:-1);}
+  const carx=p.x+nx*slipOff, cary=p.y+ny*slipOff;
+  sx.fillStyle=slipped?'#d9483b':'#2e6fdb';sx.beginPath();sx.arc(carx,cary,W*0.022,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle=slipped?'#a02b20':'#173a72';sx.stroke();
+  // throttle burst marker
+  if(thr>0&&!slipped){sx.fillStyle='#e0892a';for(let i=0;i<3;i++){sx.beginPath();sx.arc(carx-nx*W*0.03*(i+1),cary-ny*W*0.03*(i+1),W*0.008,0,7);sx.fill();}}
+  budgetCircle(turn,thr);
+  let head,hc;
+  if(slipped){head='slip! throttle added to a full cornering load';hc='#c0392b';}
+  else if(mode==='done'){head='clean lap: you waited for the straight';hc='#1d7a37';}
+  else if(mode==='playing'){head=inZone&&thr>0?(over?'flooring it in the curve...':'accelerating...'):'holding speed, grip on turning';hc='#1b2348';}
+  else head='pick where to accelerate, then drive',hc='#1b2348';
+  tag(head,W*0.5,H*0.075,hc,'center',11.5,800);
+  tag(strat==='curve'?'gas in the curve: \u221a(18\u00b2 + 10\u00b2) = 20.6 > 20  \u2192  slip'
+                     :'gas on the straight: turning is 0, so 10 < 20  \u2192  fine',
+      W*0.5,H*0.86,over||strat==='curve'?'#c0392b':'#1d7a37','center',9.5,800);
+  tag('same grip wallet, spent at a smarter moment',W*0.5,H*0.91,'#8a8f80','center',9.5,700);
+}
+function loop(ts){if(mode!=='playing'){last=ts;return;}const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  const p=pos(Math.min(s,total-0.001));const inZone=strat==='curve'?p.curve:!p.curve;
+  const over=Math.hypot(p.curve?TURN:0,inZone?AT:0)>BUD+1e-6;
+  if(over&&!slipped)slipped=true;
+  if(slipped){slipOff+=W*0.10*dt;s+=total*0.04*dt;if(slipOff>W*0.12){mode='done';go.textContent='Reset';go.className='btn';draw();return;}}
+  else{s+=total*0.28*dt;if(s>=total){mode='done';go.textContent='Reset';go.className='btn';draw();return;}}
+  draw();requestAnimationFrame(loop);}
+go.addEventListener('click',()=>{if(mode==='playing')return;if(mode==='done'){reset();}else{s=0;slipOff=0;slipped=false;mode='playing';last=0;go.textContent='Reset';go.className='btn dull';requestAnimationFrame(loop);}});
+seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;strat=b.dataset.s;[...seg.children].forEach(c=>c.classList.toggle('on',c===b));reset();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

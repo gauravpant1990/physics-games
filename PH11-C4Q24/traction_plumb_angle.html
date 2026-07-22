@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Splitting the String\u2019s Pull</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:88px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">Splitting the String&rsquo;s Pull</div>
+    <div class="sub">The string tension does two jobs at once. Its upright part carries the weight; its sideways part supplies the turning force m v&sup2;/r. That is why the lean obeys tan&theta; = v&sup2;/(rg), and the tension is always more than mg.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>corner speed v</label><input type="range" id="v" min="10" max="80" step="1" value="60"><span class="val" id="vv">60 m/s (216)</span></div></div>
+  <div class="foot">Laws of Motion &middot; Plumb bob &middot; tan&theta; = v&sup2;/(rg), T = mg/cos&theta;</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,R=320,M=1;let V=60;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}draw();}
+function arrow(x,y,dx,dy,col,wd,dash){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';if(dash)sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.setLineDash([]);sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const ac=V*V/R, th=Math.atan(ac/G), T=G/Math.cos(th), Tmg=1/Math.cos(th);
+  const px=W*0.42,py=H*0.20,Ln=H*0.26;
+  const bx=px+Ln*Math.sin(th),by=py+Ln*Math.cos(th);
+  sx.fillStyle='#1b2348';sx.fillRect(px-W*0.05,py-H*0.008,W*0.10,H*0.012);
+  sx.strokeStyle='#cdbfa3';sx.setLineDash([4,4]);sx.lineWidth=1.4;sx.beginPath();sx.moveTo(px,py);sx.lineTo(px,py+Ln);sx.stroke();sx.setLineDash([]);
+  sx.strokeStyle='#bb8047';sx.lineWidth=3;sx.beginPath();sx.moveTo(px,py);sx.lineTo(bx,by);sx.stroke();
+  sx.strokeStyle='#8a8f9c';sx.lineWidth=1.4;sx.beginPath();sx.arc(px,py,Ln*0.32,Math.PI/2-th,Math.PI/2);sx.stroke();tag('\u03b8',px+Ln*0.16*Math.sin(th/2),py+Ln*0.34*Math.cos(th/2),'#8a8f9c','center',10,800);
+  sx.fillStyle='#1b2348';sx.beginPath();sx.arc(bx,by,W*0.028,0,7);sx.fill();
+  const sc=H*0.16/G;
+  // tension along string toward pivot
+  const tux=(px-bx),tuy=(py-by),tl=Math.hypot(tux,tuy);
+  arrow(bx,by,tux/tl*T*sc,tuy/tl*T*sc,'#bb8047',4);tag('T = '+Tmg.toFixed(2)+' mg',bx+tux/tl*T*sc-W*0.03,by+tuy/tl*T*sc,'#8a5a20','right',10,800);
+  // weight down
+  arrow(bx,by,0,G*sc,'#d9483b',3.2);tag('mg',bx+W*0.03,by+G*sc,'#d9483b','left',10,800);
+  // components: vertical up = mg (green), horizontal in (left, toward centre) = mv2/r (blue)
+  arrow(bx,by,0,-G*sc,'#2fa84f',2.4,true);tag('holds mg',bx+W*0.03,by-G*sc*0.6,'#1d7a37','left',8.5,700);
+  arrow(bx,by,-ac*sc,0,'#2e6fdb',2.4,true);tag('turns: v\u00b2/r',bx-ac*sc-W*0.02,by+H*0.028,'#2e6fdb','right',8.5,700);
+  tag('one pull, split two ways',W*0.5,H*0.085,'#1b2348','center',12.5,800);
+  tag('tan\u03b8 = v\u00b2/(rg) = '+(ac/G).toFixed(2)+'    \u03b8 = '+(th*180/Math.PI).toFixed(0)+'\u00b0',W*0.5,H*0.80,'#1b2348','center',11,800);
+  tag('T = mg/cos\u03b8 = '+Tmg.toFixed(2)+' mg, always more than the weight',W*0.5,H*0.86,'#1d7a37','center',10,800);
+}
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V+' m/s ('+(V*3.6).toFixed(0)+')';draw();});
+window.addEventListener('resize',fit);fit();
+</script></body></html>

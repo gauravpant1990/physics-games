@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>The Cornering Limit</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:88px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">The Cornering Limit</div>
+    <div class="sub">At steady speed all the grip goes into turning. The tyres can supply friction only up to &mu;mg. Push the speed until the demand m v&sup2;/r reaches that ceiling, and the car runs wide off the line.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>speed v</label><input type="range" id="v" min="40" max="92" step="1" value="60"><span class="val" id="vv">60 m/s (216)</span></div></div>
+  <div class="foot">Laws of Motion &middot; Circular motion &middot; limit v = &radic;(&mu;gr) = 80 m/s = 288 km/h</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const vE=document.getElementById('v'),vv=document.getElementById('vv');
+let W=360,H=480;const ASPECT=1.3333,G=10,MU=2.0,R=320,BUD=MU*G,VMAX=Math.sqrt(MU*G*R);let V=60,phi=0,wide=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+function arrow(x,y,dx,dy,col,wd){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(11,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const ac=V*V/R, over=V>VMAX+1e-6;
+  const cx=W*0.5,cy=H*0.32,Rpx=Math.min(W*0.30,H*0.19);
+  sx.strokeStyle='#c9c2b4';sx.lineWidth=W*0.055;sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();
+  sx.strokeStyle='#fff';sx.lineWidth=2;sx.setLineDash([8,8]);sx.beginPath();sx.arc(cx,cy,Rpx,0,7);sx.stroke();sx.setLineDash([]);
+  sx.fillStyle='#8a8f9c';sx.beginPath();sx.arc(cx,cy,W*0.01,0,7);sx.fill();
+  const rr=Rpx+wide, px=cx+rr*Math.cos(phi),py=cy+rr*Math.sin(phi),ux=(cx-px)/Math.hypot(cx-px,cy-py),uy=(cy-py)/Math.hypot(cx-px,cy-py);
+  const ang=Math.atan2(uy,ux)+Math.PI/2;sx.save();sx.translate(px,py);sx.rotate(ang);sx.fillStyle=over?'#d9483b':'#2e6fdb';sx.fillRect(-W*0.019,-W*0.03,W*0.038,W*0.06);sx.restore();
+  arrow(px,py,ux*(W*0.05+Math.min(ac,BUD)*W*0.006),uy*(W*0.05+Math.min(ac,BUD)*W*0.006),over?'#d9483b':'#2fa84f',5);
+  tag(over?'grip maxed, car runs WIDE':'grip holds the line',W*0.5,H*0.075,over?'#c0392b':'#1d7a37','center',12.5,800);
+  const bx=W*0.22,bw=W*0.56,y1=H*0.70,mx=26,X=q=>bw*Math.min(q,mx)/mx;
+  tag('turning demand v\u00b2/r',bx-W*0.02,y1+H*0.012,'#5b6172','right',9.5,800);sx.fillStyle='#dfe6ef';sx.fillRect(bx,y1,bw,H*0.028);sx.fillStyle=over?'#d9483b':'#2fa84f';sx.fillRect(bx,y1,X(ac),H*0.028);tag(ac.toFixed(1),bx+X(ac)+W*0.02,y1+H*0.014,over?'#c0392b':'#1d7a37','left',9.5,800);
+  const cxl=bx+X(BUD);sx.strokeStyle='#c0392b';sx.lineWidth=2.2;sx.setLineDash([4,3]);sx.beginPath();sx.moveTo(cxl,y1-H*0.016);sx.lineTo(cxl,y1+H*0.05);sx.stroke();sx.setLineDash([]);tag('grip ceiling \u03bcg = '+BUD,cxl,y1-H*0.032,'#c0392b','center',9.5,800);
+  tag('slip when v\u00b2/r = \u03bcg  \u2192  v = \u221a(\u03bcgr) = 80 m/s = 288 km/h',W*0.5,H*0.82,'#1d7a37','center',10,800);
+  tag('speed now '+(V*3.6).toFixed(0)+' km/h',W*0.5,H*0.88,'#8a8f80','center',10,700);
+}
+function loop(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;phi+=(V/90)*dt;const over=V>VMAX+1e-6;if(over)wide=Math.min(H*0.055,wide+H*0.04*dt);else wide=Math.max(0,wide-H*0.10*dt);draw();requestAnimationFrame(loop);}
+vE.addEventListener('input',()=>{V=+vE.value;vv.textContent=V+' m/s ('+(V*3.6).toFixed(0)+')';});
+window.addEventListener('resize',()=>{fit();});fit();requestAnimationFrame(loop);
+</script></body></html>
