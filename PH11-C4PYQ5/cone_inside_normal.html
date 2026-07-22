@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>A Bead Inside a Cone</title>
+<style>
+  :root{--navy:#1b2348;--cream:#f2efe9;}*{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--cream);font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:8px 0;overflow:hidden}
+  .wrap{width:360px;max-width:94vw}.card{background:#fff;border:2px solid var(--navy);border-radius:12px;margin-bottom:7px}.card.pad{padding:10px 12px}
+  .head{font-size:14.5px;font-weight:800;color:var(--navy)}.sub{font-size:11px;color:#5b6172;margin-top:3px;line-height:1.35}
+  canvas{display:block;width:100%;border-radius:10px}.ctl{display:flex;align-items:center;gap:10px}.ctl label{font-size:11.5px;font-weight:800;color:var(--navy);white-space:nowrap}
+  input[type=range]{flex:1;accent-color:#185FA5;height:22px}.val{font-size:12.5px;font-weight:800;color:#185FA5;min-width:56px;text-align:right}
+  .foot{font-size:10px;color:#8a8f9c;text-align:center;padding:2px 0 0}
+</style></head>
+<body><div class="wrap">
+  <div class="card pad"><div class="head">A Bead Inside a Cone</div>
+    <div class="sub">Here the wall is smooth, so its push is a normal force, straight out of the surface, not a rope tension. Because the normal is tilted the other way, its up part holds the weight and its side part turns the circle, giving cot&theta; instead of tan&theta;.</div></div>
+  <div class="card"><canvas id="scene"></canvas></div>
+  <div class="card pad"><div class="ctl"><label>half-angle &theta;</label><input type="range" id="th" min="20" max="75" step="1" value="45"><span class="val" id="thv">45&deg;</span></div></div>
+  <div class="foot">Laws of Motion &middot; Cone &middot; N sin&theta; = mg, N cos&theta; = mv&sup2;/r &rarr; v = &radic;(rg cot&theta;)</div>
+</div>
+<script>
+const scn=document.getElementById('scene'),sx=scn.getContext('2d');const thE=document.getElementById('th'),thv=document.getElementById('thv');
+let W=360,H=480;const ASPECT=1.3333,G=10,r=2.5;let TH=45,phi=0,last=0;
+function sizeCanvas(w){W=w;H=Math.round(w*ASPECT);const d=window.devicePixelRatio||1;scn.style.height=H+'px';scn.width=Math.round(W*d);scn.height=Math.round(H*d);sx.setTransform(d,0,0,d,0,0);}
+function fit(){const wrap=document.querySelector('.wrap');const vw=document.documentElement.clientWidth||360,vh=window.innerHeight||640;const cap=Math.min(vw*0.94,360);let w=cap;wrap.style.width=w+'px';sizeCanvas(w);let chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);const avail=vh-20;for(let i=0;i<3&&(chrome+w*ASPECT>avail);i++){w=Math.min(cap,Math.max(160,(avail-chrome)/ASPECT));wrap.style.width=w+'px';sizeCanvas(w);chrome=wrap.offsetHeight-parseFloat(scn.style.height||0);}}
+function arrow(x,y,dx,dy,col,wd,dash){const L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L,hl=Math.min(10,L*0.5);sx.strokeStyle=col;sx.fillStyle=col;sx.lineWidth=wd;sx.lineCap='round';if(dash)sx.setLineDash([5,4]);sx.beginPath();sx.moveTo(x,y);sx.lineTo(x+dx-ux*hl*0.6,y+dy-uy*hl*0.6);sx.stroke();sx.setLineDash([]);sx.beginPath();sx.moveTo(x+dx,y+dy);sx.lineTo(x+dx-ux*hl-uy*hl*0.5,y+dy-uy*hl+ux*hl*0.5);sx.lineTo(x+dx-ux*hl+uy*hl*0.5,y+dy-uy*hl-ux*hl*0.5);sx.closePath();sx.fill();}
+function tag(t,x,y,col,al,sz,wt){sx.font=(wt||800)+' '+(sz||11)+'px Trebuchet MS,sans-serif';sx.textAlign=al||'center';sx.textBaseline='middle';var _p=6,_w=(sx.measureText(t).width)||0,_a=al||'center',_x0,_x1;if(_a==='left'){_x0=x;_x1=x+_w;}else if(_a==='right'){_x0=x-_w;_x1=x;}else{_x0=x-_w/2;_x1=x+_w/2;}if(_x0<_p)x+=_p-_x0;if(_x1>W-_p)x-=_x1-(W-_p);var _s=(sz||11);if(y<_p+_s)y=_p+_s;if(y>H-_p-_s)y=H-_p-_s;sx.fillStyle=col;sx.fillText(t,x,y);}
+function draw(){sx.clearRect(0,0,W,H);
+  const th=TH*Math.PI/180, cot=1/Math.tan(th), v=Math.sqrt(r*G*cot);
+  const rpx=Math.min(W*0.20,H*0.14), hpx=Math.min(H*0.30, rpx/Math.tan(th));
+  const ax=W*0.5, ay=H*0.58;                 // apex
+  const topY=ay-hpx;
+  // cone walls (cross-section), extended a touch above bead ring
+  const ext=1.18;
+  sx.strokeStyle='#c9c2b4';sx.lineWidth=W*0.02;
+  sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(ax-rpx*ext,ay-hpx*ext);sx.stroke();
+  sx.beginPath();sx.moveTo(ax,ay);sx.lineTo(ax+rpx*ext,ay-hpx*ext);sx.stroke();
+  // axis
+  sx.strokeStyle='#cdbfa3';sx.setLineDash([4,4]);sx.lineWidth=1.3;sx.beginPath();sx.moveTo(ax,ay+H*0.02);sx.lineTo(ax,topY-H*0.03);sx.stroke();sx.setLineDash([]);
+  tag('axis',ax,topY-H*0.045,'#8a8f9c','center',8.5,700);
+  // horizontal circle (ellipse) at bead height
+  sx.strokeStyle='#d8dee8';sx.lineWidth=1.4;sx.beginPath();sx.ellipse(ax,topY,rpx,rpx*0.30,0,0,7);sx.stroke();
+  // bead at right-front for the FBD
+  const bx=ax+rpx, by=topY;
+  sx.fillStyle='#e88b00';sx.beginPath();sx.arc(bx,by,W*0.026,0,7);sx.fill();sx.lineWidth=2;sx.strokeStyle='#b06a00';sx.stroke();
+  // angle arc at apex (between axis and right wall)
+  sx.strokeStyle='#8a8f9c';sx.lineWidth=1.4;sx.beginPath();sx.arc(ax,ay,H*0.05,-Math.PI/2,-Math.PI/2+th);sx.stroke();tag('\u03b8',ax+H*0.03*Math.sin(th/2),ay-H*0.055*Math.cos(th/2),'#8a8f9c','center',10,800);
+  // forces at bead
+  const sc=H*0.13;
+  // normal: perpendicular to right wall, pointing inward-up = (-cos, -sin) in screen (y up = -)
+  const nx=-Math.cos(th), ny=-Math.sin(th);
+  arrow(bx,by,nx*sc,ny*sc,'#2e6fdb',4);tag('normal N',bx+nx*sc-W*0.02,by+ny*sc-H*0.012,'#173a72','right',9.5,800);
+  // weight
+  arrow(bx,by,0,sc*0.75,'#d9483b',3.2);tag('mg',bx+W*0.03,by+sc*0.6,'#d9483b','left',10,800);
+  // components: vertical up (N sinθ = mg), horizontal in (N cosθ = mv2/r)
+  arrow(bx,by,0,-Math.sin(th)*sc,'#2fa84f',2.4,true);tag('N sin\u03b8 = mg',bx+W*0.03,by-Math.sin(th)*sc*0.6,'#1d7a37','left',8.5,700);
+  arrow(bx,by,-Math.cos(th)*sc,0,'#7A4FA3',2.4,true);tag('N cos\u03b8 = mv\u00b2/r',bx-Math.cos(th)*sc-W*0.02,by+H*0.026,'#5b3a86','right',8.5,700);
+  tag('smooth wall pushes perpendicular',W*0.5,H*0.09,'#1b2348','center',12,800);
+  tag('divide: N cos\u03b8 / N sin\u03b8 = (mv\u00b2/r)/mg  \u2192  cot\u03b8 = v\u00b2/(rg)',W*0.5,H*0.78,'#1b2348','center',10,800);
+  tag('so v = \u221a(rg cot\u03b8) = '+v.toFixed(1)+' m/s   (r = 2.5 m)',W*0.5,H*0.84,'#1d7a37','center',11,800);
+  tag('a rope would give tan\u03b8; the tilted normal flips it to cot\u03b8',W*0.5,H*0.895,'#8a8f80','center',9.5,700);
+}
+thE.addEventListener('input',()=>{TH=+thE.value;thv.textContent=TH+'\u00b0';draw();});
+window.addEventListener('resize',()=>{fit();draw();});fit();draw();
+</script></body></html>
