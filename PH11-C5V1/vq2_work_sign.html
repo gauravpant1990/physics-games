@@ -212,9 +212,11 @@ const INK='#2e140f',GOLD='#ebae42',GOLD_DK='#b97f1f',
 const REF_W=370,REF_H=620,MIN_SCALE=0.58,MAX_SCALE=1.2;
 let W=360,H=300,last=0,raf=0;
 
-const F=100,D=5;
+const F=100,D=5,M=20,V0=10;
 let VAL=0,x=0,simT=0,told=false;
 function work(){return F*D*Math.cos(VAL*Math.PI/180);}
+function workNow(){return work()*(x/D);}
+function speed(){return Math.sqrt(Math.max(0.01,V0*V0+2*workNow()/M));}
 function chipUpdate(){
   chip.textContent=VAL+'\u00b0';
   chip.classList.toggle('hot',VAL>90);
@@ -326,14 +328,33 @@ function draw(){
   cx2.strokeStyle=INK;cx2.lineWidth=Math.max(1.4,U*0.07);
   cx2.beginPath();cx2.arc(px,cyb,U*1.4,-th,0);cx2.stroke();
   txt(VAL+'\u00b0',px+U*2.0*Math.cos(th/2),cyb-U*2.0*Math.sin(th/2),INK,Math.max(9.5,U*0.52));
-  arrow(px,gy+U*1.2,U*2.2,0,MUTEDTXT,wd*0.7);
-  txt('moves this way',px+U*2.6,gy+U*2.0,MUTEDTXT,Math.max(9,U*0.48),'left');
-  const wnow=work()*(x/D);
+  /* start marker with the initial velocity */
+  const sx=W*0.24;
+  cx2.strokeStyle=MUTEDTXT;cx2.lineWidth=Math.max(1.2,U*0.06);cx2.setLineDash([U*0.18,U*0.18]);
+  cx2.beginPath();cx2.moveTo(sx,gy-bs*1.5);cx2.lineTo(sx,gy+U*0.5);cx2.stroke();cx2.setLineDash([]);
+  arrow(sx,gy+U*1.3,U*1.8,0,MUTEDTXT,wd*0.7);
+  txt('v\u2080 = '+V0+' m/s',sx+U*2.1,gy+U*1.3,MUTEDTXT,Math.max(9,U*0.48),'left');
+  if(x>0.05){
+    const v=speed();
+    arrow(px,gy-bs-U*1.5,v*U*0.20,0,INK,wd*0.85);
+    txt('v = '+v.toFixed(1)+' m/s',px+v*U*0.20+U*0.7,gy-bs-U*1.5,INK,Math.max(9.5,U*0.50),'left');
+  }
+  const wnow=workNow();
   txt(mode==='ready'?'W = F d cos\u03b8':'W = '+(wnow>=0?'+':'')+wnow.toFixed(0)+' J',
       W*0.5,H*0.655,c>0.001?GOLD_DK:(c<-0.001?RED:'#6b5b8a'),Math.max(11,U*0.58));
-  twoBars(U,'FEEDS ENERGY',Math.max(0,work()),GOLD,'DRAINS ENERGY',Math.max(0,-work()),RED,500,
-    VAL===90?'sideways force: no work at all':'only cos\u03b8 decides which bar fills',
-    VAL===90?'#6b5b8a':MUTEDTXT);
+  /* one signed bar, zero in the middle: right feeds energy in, left drains it */
+  const bx0=W*0.20,bw=W*0.66,bh=Math.max(U*0.80,9),y0=H*0.775,mid=bx0+bw/2;
+  const fs=Math.max(9.5,U*0.50);
+  inkRect(bx0,y0,bw,bh,'#fff',U*0.2,U);
+  const frac=Math.max(-1,Math.min(1,wnow/500)),len=(bw/2)*Math.abs(frac);
+  cx2.fillStyle=frac>=0?GOLD:RED;
+  if(len>0.5)roundRect(frac>=0?mid:mid-len,y0,len,bh,U*0.16),cx2.fill();
+  cx2.strokeStyle=INK;cx2.lineWidth=Math.max(1.6,U*0.09);cx2.lineCap='round';
+  cx2.beginPath();cx2.moveTo(mid,y0-U*0.28);cx2.lineTo(mid,y0+bh+U*0.28);cx2.stroke();
+  txt('0',mid,y0+bh+U*0.95,MUTEDTXT,fs*0.92);
+  txt('drains',bx0+U*0.1,y0+bh+U*0.95,RED,fs*0.92,'left');
+  txt('feeds in',bx0+bw-U*0.1,y0+bh+U*0.95,GOLD_DK,fs*0.92,'right');
+  txt('WORK',bx0-U*0.35,y0+bh/2,c<-0.001?RED:GOLD_DK,fs,'right');
 }
 
 /* ---------- state ---------- */
@@ -360,8 +381,9 @@ function talk(){
   const w=work();
   if(mode==='ready')setBanner('ANGLE '+VAL+'\u00b0. PRESS PLAY');
   else if(mode==='playing')setBanner('PUSHING...');
-  else if(VAL===90)setBanner('90\u00b0: ZERO WORK','win');
-  else setBanner('W = '+(w>=0?'+':'')+w.toFixed(0)+' J',w<0?'alert':'win');
+  else if(VAL===90)setBanner('90\u00b0: ZERO WORK, SPEED UNCHANGED','win');
+  else setBanner('W = '+(w>=0?'+':'')+w.toFixed(0)+' J, v: '+V0+' \u2192 '+speed().toFixed(1),
+      w<0?'alert':'win');
 }
 function post(extra){
   try{
