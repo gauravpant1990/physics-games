@@ -338,8 +338,14 @@ function draw(){
   txt(VAL+' kg',cxp,gy-cw*0.42-U*1.1,MUTEDTXT,Math.max(9,U*0.48));
   txt(mode==='done'?'stopped on the mark again':'the mark never moves',
       W*0.5,H*0.63,mode==='done'?'#6b5b8a':MUTEDTXT,Math.max(10,U*0.54));
-  twoBars(U,'ENERGY (kJ)',0.5*VAL*V0*V0/1000,ORANGE,'GRIP (kN)',MU*VAL*G/1000,GOLD,110,
-    'both rise with mass, so the distance cannot change',MUTEDTXT);
+  /* one bar only: the energy grows with mass, yet the mark never moves */
+  const bx0=W*0.34,bw=W*0.58,bh=Math.max(U*0.74,8),y0=H*0.775,fs=Math.max(9.5,U*0.50);
+  txt('ENERGY (kJ)',bx0-U*0.35,y0+bh/2,ORANGE_DK,fs,'right');
+  inkRect(bx0,y0,bw,bh,'#fff',U*0.2,U);
+  cx2.fillStyle=ORANGE;
+  roundRect(bx0,y0,bw*Math.min((0.5*VAL*V0*V0/1000)/110,1),bh,U*0.2);cx2.fill();
+  txt((0.5*VAL*V0*V0/1000).toFixed(1),bx0+bw+U*0.35,y0+bh/2,ORANGE_DK,fs,'left');
+  txt('friction grows with mass by the same factor',W*0.5,y0+bh+U*0.95,MUTEDTXT,fs*1.02);
 }
 
 /* ---------- state ---------- */
